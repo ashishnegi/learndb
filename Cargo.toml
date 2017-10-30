@@ -1,0 +1,6 @@
+[package]
+name = "learndb"
+version = "0.1.0"
+authors = ["Ashish Negi <asnegi@microsoft.com>"]
+
+[dependencies]
