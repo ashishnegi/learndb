@@ -1,4 +1,5 @@
 mod fileapi;
+mod bplustree;
 
 fn main() {
     let key = "hello";
@@ -22,4 +23,6 @@ fn main() {
         });
     }
     assert!(fileapi::delete_key(key).is_ok());
+
+    println!("bplustree: {:?}", bplustree::create_root(String::from("hello")));
 }
