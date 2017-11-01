@@ -1,5 +1,6 @@
 mod fileapi;
 mod bplustree;
+mod list;
 
 fn main() {
     let key = "hello";
@@ -25,4 +26,6 @@ fn main() {
     assert!(fileapi::delete_key(key).is_ok());
 
     println!("bplustree: {:?}", bplustree::Node::new(String::from("hello")));
+
+    println!("list: {:?}", list::List::new())
 }
