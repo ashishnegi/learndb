@@ -24,5 +24,5 @@ fn main() {
     }
     assert!(fileapi::delete_key(key).is_ok());
 
-    println!("bplustree: {:?}", bplustree::create_root(String::from("hello")));
+    println!("bplustree: {:?}", bplustree::Node::new(String::from("hello")));
 }
