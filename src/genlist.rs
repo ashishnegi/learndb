@@ -1,5 +1,3 @@
-use std::mem;
-
 type Link = Option<Box<Node>>;
 
 #[derive(Debug)]
@@ -19,31 +17,29 @@ impl List {
     }
 
     pub fn insert(&mut self, v : i32) {
-        let old_head = mem::replace(&mut self.head, None);
-        let new_head = Some(Box::new(Node { val : v, next: old_head}));
-        self.head = new_head
+        let new_head = Some(Box::new(Node {
+            val : v,
+            next: self.head.take()
+        }));
+
+        self.head = new_head;
     }
 
     pub fn remove(&mut self) -> Option<i32> {
-        match mem::replace(&mut self.head, None) {
-            None => {
-                None
-            },
-            Some(node) => {
-                let result = Some(node.val);
-                self.head = node.next;
-                result
-            }
-        }
+        self.head.take().map ( |node| {
+            let result = node.val;
+            self.head = node.next;
+            result
+        })
     }
 }
 
 impl Drop for List {
     fn drop(&mut self) {
-        let mut head = mem::replace(&mut self.head, None);
+        let mut head = self.head.take();
 
         while let Some(mut node) = head {
-            head = mem::replace(&mut node.next, None);
+            head = node.next.take();
         }
     }
 }

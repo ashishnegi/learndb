@@ -46,7 +46,7 @@ impl Drop for List {
     fn drop(&mut self) {
         let mut head = mem::replace(&mut self.head, Link::Nil);
 
-        while true {
+       loop {
             match mem::replace(&mut head, Link::Nil) {
                 Link::Nil => break,
                 Link::More(ref mut node) => {
