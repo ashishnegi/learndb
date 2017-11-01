@@ -1,41 +1,36 @@
 use std::mem;
 
 #[derive(Debug)]
-pub struct List {
-    head: Link
-}
-
-#[derive(Debug)]
-enum Link {
+pub enum List {
     Nil,
     More(Box<Node>),
 }
 
 #[derive(Debug)]
-struct Node {
+pub struct Node {
     val: i32,
-    next: Link
+    next: List
 }
 
 impl List {
     pub fn new() -> Self {
-        List { head : Link::Nil }
+        List::Nil
     }
 
     pub fn insert(&mut self, v : i32) {
-        let old_head = mem::replace(&mut self.head, Link::Nil);
-        let new_head = Link::More(Box::new(Node { val : v, next: old_head}));
-        self.head = new_head
+        let old_head = mem::replace(&mut *self, List::Nil);
+        let new_head = List::More(Box::new(Node { val : v, next: old_head}));
+        *self = new_head
     }
 
     pub fn remove(&mut self) -> Option<i32> {
-        match mem::replace(&mut self.head, Link::Nil) {
-            Link::Nil => {
+        match mem::replace(&mut *self, List::Nil) {
+            List::Nil => {
                 None
             },
-            Link::More(node) => {
-                let result = Some(node.val);
-                self.head = node.next;
+            List::More(ref mut boxed_node) => {
+                let result = Some(boxed_node.val);
+                *self = mem::replace(&mut boxed_node.next, List::Nil);
                 result
             }
         }
@@ -44,17 +39,14 @@ impl List {
 
 impl Drop for List {
     fn drop(&mut self) {
-        let mut head = mem::replace(&mut self.head, Link::Nil);
-
         while true {
-            match mem::replace(&mut head, Link::Nil) {
-                Link::Nil => break,
-                Link::More(ref mut node) => {
-                    head = mem::replace(&mut node.next, Link::Nil);
+            match self {
+                &mut List::Nil => break,
+                &mut List::More(ref mut node) => {
+                    *self = mem::replace(& mut node.next, List::Nil)
                 }
             }
         }
-
     }
 }
 
