@@ -1,25 +1,30 @@
 use std::mem;
 
 #[derive(Debug)]
-pub enum List {
+pub struct List {
+    head: Link
+}
+
+#[derive(Debug)]
+pub enum Link {
     Nil,
-    More(Node),
+    More(Box<Node>),
 }
 
 #[derive(Debug)]
 struct Node {
     val: i32,
-    next: Box<List>
+    next: Link
 }
 
 impl List {
     pub fn new() -> Self {
-        List::Nil
+        List { head : Link::Nil }
     }
 
     pub fn insert(&mut self, v : i32) {
-        let old_self = mem::replace(self, List::Nil);
-        let new_list = List::More(Node { val : v, next: Box::new(old_self)});
-        self = &mut new_list
+        let old_head = mem::replace(&mut self.head, Link::Nil);
+        let new_head = Link::More(Box::new(Node { val : v, next: old_head}));
+        self.head = new_head
     }
 }

@@ -27,5 +27,7 @@ fn main() {
 
     println!("bplustree: {:?}", bplustree::Node::new(String::from("hello")));
 
-    println!("list: {:?}", list::List::new())
+    let mut list = list::List::new();
+    list.insert(7);
+    println!("list: {:?}", list);
 }
