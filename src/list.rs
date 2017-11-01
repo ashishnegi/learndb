@@ -27,4 +27,17 @@ impl List {
         let new_head = Link::More(Box::new(Node { val : v, next: old_head}));
         self.head = new_head
     }
+
+    pub fn remove(&mut self) -> Option<i32> {
+        match mem::replace(&mut self.head, Link::Nil) {
+            Link::Nil => {
+                None
+            },
+            Link::More(node) => {
+                let result = Some(node.val);
+                self.head = node.next;
+                result
+            }
+        }
+    }
 }

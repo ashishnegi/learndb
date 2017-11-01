@@ -30,4 +30,6 @@ fn main() {
     let mut list = list::List::new();
     list.insert(7);
     println!("list: {:?}", list);
+    list.remove();
+    println!("list: {:?}", list);
 }
