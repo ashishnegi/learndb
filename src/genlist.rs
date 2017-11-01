@@ -32,6 +32,12 @@ impl<T> List<T> {
             result.val
         })
     }
+
+    pub fn peek(&self) -> Option<&T> {
+        self.head.as_ref().map(|node| {
+            &node.val
+        })
+    }
 }
 
 impl<T> Drop for List<T> {
@@ -70,6 +76,19 @@ mod test {
         let mut list = List::new();
         for i in 1..100000 {
             list.insert(i);
+        }
+    }
+
+    #[test]
+    fn peek_tests() {
+        let mut list = List::new();
+        let upto = 10;
+        for i in 1..upto {
+            list.insert(i);
+        }
+        for i in 1..upto {
+            assert_eq!(Some(&(upto - i)), list.peek());
+            list.remove();
         }
     }
 }
