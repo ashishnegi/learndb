@@ -1,6 +1,7 @@
 mod fileapi;
 mod bplustree;
 mod list;
+mod genlist;
 
 fn main() {
     let key = "hello";
@@ -27,9 +28,19 @@ fn main() {
 
     println!("bplustree: {:?}", bplustree::Node::new(String::from("hello")));
 
-    let mut list = list::List::new();
-    list.insert(7);
-    println!("list: {:?}", list);
-    list.remove();
-    println!("list: {:?}", list);
+    {
+        let mut list = list::List::new();
+        list.insert(7);
+        println!("list: {:?}", list);
+        list.remove();
+        println!("list: {:?}", list);
+    }
+
+    {
+        let mut list = genlist::List::new();
+        list.insert(7);
+        println!("list: {:?}", list);
+        list.remove();
+        println!("list: {:?}", list);
+    }
 }
