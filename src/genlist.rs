@@ -38,6 +38,10 @@ impl<T> List<T> {
             &node.val
         })
     }
+
+    pub fn into_iter(self) -> IntoIter<T> {
+        IntoIter(self)
+    }
 }
 
 impl<T> Drop for List<T> {
@@ -47,6 +51,15 @@ impl<T> Drop for List<T> {
         while let Some(mut node) = head {
             head = node.next.take();
         }
+    }
+}
+
+pub struct IntoIter<T>(List<T>);
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.remove()
     }
 }
 
@@ -80,7 +93,7 @@ mod test {
     }
 
     #[test]
-    fn peek_tests() {
+    fn peeks() {
         let mut list = List::new();
         let upto = 10;
         for i in 1..upto {
@@ -90,5 +103,23 @@ mod test {
             assert_eq!(Some(&(upto - i)), list.peek());
             list.remove();
         }
+    }
+
+    #[test]
+    fn into_iter() {
+        let mut list = List::new();
+        let upto = 10;
+        for i in 1..upto {
+            list.insert(i);
+        }
+
+        let mut i = 9;
+        let mut iter = list.into_iter();
+        while let Some(v) = iter.next() {
+            assert_eq!(v, i);
+            i = i - 1;
+        }
+
+        assert_eq!(None, iter.next());
     }
 }

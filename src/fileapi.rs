@@ -12,36 +12,51 @@ use std::fs::OpenOptions;
 // key_exists : check if key exists.
 // delete_key : deletes the key.
 
-pub fn create_key(key : &str, value : &[u8]) -> Result<(), Error> {
-    // How to atomically create a file if it does not exist ?
-    // I don't want to do it in 2 calls.
-    // Check if it exists and if not, then create. Race condition at `and`.
-    // Currently we truncate the file.
-
-    // key is our file name.
-    let mut buffer = File::create(key)?;
-    buffer.write_all(value)
+pub trait Storage {
+    fn get_value(&self, key : &str) -> Result<Vec<u8>, Error>;
+    fn put_value(&self, key : &str, value: &[u8]) -> Result<(), Error>;
+    fn key_exists(&self, key : &str) -> bool;
+    fn delete_key(&self, key: &str) -> Result<(), Error>;
 }
 
-pub fn get_value(key : &str) -> Result<Vec<u8>, Error> {
-    let mut file = File::open(key)?;
-    let mut contents = Vec::new();
-    file.read_to_end(&mut contents)?;
-    Ok(contents)
+#[derive(Debug)]
+pub struct FileStorage {
+    root_path: String
 }
 
-pub fn put_value(key : &str, value: &[u8]) -> Result<(), Error> {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(key)?;
-    file.write_all(value)
+impl Storage for FileStorage {
+    fn get_value(&self, key: &str) -> Result<Vec<u8>, Error> {
+        let mut file = File::open(self.full_path(key))?;
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents)?;
+        Ok(contents)
+    }
+
+    fn put_value(&self, key: &str, value: &[u8]) -> Result<(), Error> {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(self.full_path(key))?;
+        file.write_all(value)
+    }
+
+    fn key_exists(&self, key: &str) -> bool {
+        fs::metadata(self.full_path(key)).is_ok()
+    }
+
+    fn delete_key(&self, key: &str) -> Result<(), Error> {
+        fs::remove_file(self.full_path(key))
+    }
 }
 
-pub fn key_exists(key : &str) -> bool {
-    fs::metadata(key).is_ok()
-}
+impl FileStorage {
+    pub fn new(root_path : String) -> Self {
+        FileStorage {
+            root_path : root_path
+        }
+    }
 
-pub fn delete_key(key: &str) -> Result<(), Error> {
-    fs::remove_file(key)
+    fn full_path(&self, key: &str) -> String {
+        format!("{}/{}", self.root_path.as_str(), key)
+    }
 }
