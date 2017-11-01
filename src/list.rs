@@ -6,7 +6,7 @@ pub struct List {
 }
 
 #[derive(Debug)]
-pub enum Link {
+enum Link {
     Nil,
     More(Box<Node>),
 }
@@ -39,5 +39,27 @@ impl List {
                 result
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::List;
+
+    #[test]
+    fn basics() {
+        let mut list = List::new();
+        list.insert(7);
+        assert_eq!(Some(7), list.remove());
+        assert_eq!(None, list.remove());
+
+        list.insert(1);
+        list.insert(2);
+        list.insert(3);
+
+        assert_eq!(Some(3), list.remove());
+        assert_eq!(Some(2), list.remove());
+        assert_eq!(Some(1), list.remove());
+        assert_eq!(None, list.remove());
     }
 }
