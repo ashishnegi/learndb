@@ -1,22 +1,22 @@
-type Link = Option<Box<Node>>;
+type Link<T> = Option<Box<Node<T>>>;
 
 #[derive(Debug)]
-pub struct List {
-    head: Link
+pub struct List<T> {
+    head: Link<T>
 }
 
 #[derive(Debug)]
-struct Node {
-    val: i32,
-    next: Link
+struct Node<T> {
+    val: T,
+    next: Link<T>
 }
 
-impl List {
+impl<T> List<T> {
     pub fn new() -> Self {
         List { head : None }
     }
 
-    pub fn insert(&mut self, v : i32) {
+    pub fn insert(&mut self, v: T) {
         let new_head = Some(Box::new(Node {
             val : v,
             next: self.head.take()
@@ -25,16 +25,16 @@ impl List {
         self.head = new_head;
     }
 
-    pub fn remove(&mut self) -> Option<i32> {
+    pub fn remove(&mut self) -> Option<T> {
         self.head.take().map ( |node| {
-            let result = node.val;
-            self.head = node.next;
-            result
+            let result = *node;
+            self.head = result.next;
+            result.val
         })
     }
 }
 
-impl Drop for List {
+impl<T> Drop for List<T> {
     fn drop(&mut self) {
         let mut head = self.head.take();
 
