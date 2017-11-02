@@ -42,6 +42,12 @@ impl<T> List<T> {
     pub fn into_iter(self) -> IntoIter<T> {
         IntoIter(self)
     }
+
+    pub fn iter(& self) -> Iter<T> {
+        Iter{ next : self.head.as_ref().map(|node| {
+            &**node
+        })}
+    }
 }
 
 impl<T> Drop for List<T> {
@@ -60,6 +66,23 @@ impl<T> Iterator for IntoIter<T> {
     type Item = T;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.remove()
+    }
+}
+
+#[derive(Debug)]
+pub struct Iter<'a, T : 'a> {
+    next: Option<&'a Node<T>>
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|boxed_next| {
+            self.next = boxed_next.next.as_ref().map(|next| {
+                &**next
+            });
+            &boxed_next.val
+        })
     }
 }
 
@@ -117,6 +140,24 @@ mod test {
         let mut iter = list.into_iter();
         while let Some(v) = iter.next() {
             assert_eq!(v, i);
+            i = i - 1;
+        }
+
+        assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn iter() {
+        let mut list = List::new();
+        let upto = 10;
+        for i in 1..upto {
+            list.insert(i);
+        }
+
+        let mut i = 9;
+        let mut iter = list.iter();
+        while let Some(v) = iter.next() {
+            assert_eq!(v, &i);
             i = i - 1;
         }
 
