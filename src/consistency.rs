@@ -68,3 +68,24 @@ impl<'a> Consistency<'a> {
         (s.finish() as usize) % CONCURRENCY
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn hash() {
+        let (mut ashishHash, mut ashishnegiHash) = (0, 0);
+        {
+            let mut s = DefaultHasher::new();
+            "ashish".hash(&mut s);
+            ashishHash = s.finish();
+        }
+        {
+            let mut s = DefaultHasher::new();
+            "ashish negi".hash(&mut s);
+            ashishnegiHash = s.finish()
+        }
+        assert!(ashishHash != ashishnegiHash);
+    }
+}
