@@ -3,6 +3,7 @@ mod bplustree;
 mod list;
 mod genlist;
 mod consistency;
+mod persistentlist;
 
 fn main() {
     let key = "hello";
@@ -50,5 +51,14 @@ fn main() {
 
     {
         consistency::Consistency::new(&storage);
+    }
+
+    {
+        let list = persistentlist::List::new().append(1);
+        println!("persistentlist: {:?}", list);
+        list.tail();
+        println!("persistentlist: {:?}", list);
+        let list2 = list.tail();
+        println!("persistentlist: {:?}", list2);
     }
 }
