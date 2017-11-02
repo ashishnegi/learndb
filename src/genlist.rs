@@ -48,6 +48,12 @@ impl<T> List<T> {
             &**node
         })}
     }
+
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut{ next : self.head.as_mut().map(|node| {
+            &mut **node
+        })}
+    }
 }
 
 impl<T> Drop for List<T> {
@@ -82,6 +88,23 @@ impl<'a, T> Iterator for Iter<'a, T> {
                 &**next
             });
             &boxed_next.val
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct IterMut<'a, T : 'a> {
+    next: Option<&'a mut Node<T>>
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|boxed_next| {
+            self.next = boxed_next.next.as_mut().map(|next| {
+                &mut **next
+            });
+            &mut boxed_next.val
         })
     }
 }
@@ -162,5 +185,33 @@ mod test {
         }
 
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn iter_mut() {
+        let mut list = List::new();
+        let upto = 10;
+        for i in 1..upto {
+            list.insert(i);
+        }
+
+        let mut i = 9;
+        // only one mutation iterator is possible.
+        {
+            let mut iter = list.iter_mut();
+            while let Some(v) = iter.next() {
+                assert_eq!(v, &i);
+                *v = 10 - i;
+                i = i - 1;
+            }
+        }
+        // changes of one will be visible to other.
+        {
+            let mut iter = list.iter_mut();
+            while let Some(v) = iter.next() {
+                i = i + 1;
+                assert_eq!(v, &i);
+            }
+        }
     }
 }
