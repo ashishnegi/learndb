@@ -1,7 +1,7 @@
-use std::rc::Rc;
+use std::sync::Arc;
 use std::fmt;
 
-type Link<T> = Option<Rc<Node<T>>>;
+type Link<T> = Option<Arc<Node<T>>>;
 
 #[derive(Debug)]
 pub struct List<T> where T: fmt::Debug {
@@ -23,7 +23,7 @@ impl<T> List<T> where T: fmt::Debug {
 
     pub fn append(&self, val: T) -> List<T> {
         List {
-            head : Some(Rc::new(Node{
+            head : Some(Arc::new(Node{
                 val : val,
                 next : self.head.clone()
             }))
@@ -73,7 +73,7 @@ impl<T> Drop for List<T> where T: fmt::Debug {
     fn drop(&mut self) {
         let mut curr_list = self.head.take();
         while let Some(node) = curr_list {
-            match Rc::try_unwrap(node) {
+            match Arc::try_unwrap(node) {
                 Err(_) => {
                     break
                 },
