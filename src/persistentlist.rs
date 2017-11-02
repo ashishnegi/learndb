@@ -1,19 +1,20 @@
 use std::rc::Rc;
+use std::fmt;
 
 type Link<T> = Option<Rc<Node<T>>>;
 
 #[derive(Debug)]
-pub struct List<T> {
+pub struct List<T> where T: fmt::Debug {
     head: Link<T>
 }
 
 #[derive(Debug)]
-struct Node<T> {
+struct Node<T> where T: fmt::Debug {
     val: T,
     next: Link<T>
 }
 
-impl<T> List<T> {
+impl<T> List<T> where T: fmt::Debug {
     pub fn new() -> Self {
         List {
             head : None
@@ -53,16 +54,14 @@ impl<T> List<T> {
 }
 
 #[derive(Debug)]
-pub struct Iter<'a, T : 'a> {
+pub struct Iter<'a, T : 'a> where T: fmt::Debug {
     next: Option<&'a Node<T>>
 }
 
-impl<'a, T> Iterator for Iter<'a, T> {
+impl<'a, T> Iterator for Iter<'a, T> where T: fmt::Debug {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use std::borrow::Borrow;
-
         self.next.map(|curr| {
             self.next = curr.next.as_ref().map(|next| &**next);
             &curr.val
@@ -70,11 +69,30 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
+impl<T> Drop for List<T> where T: fmt::Debug {
+    fn drop(&mut self) {
+        let mut curr_list = self.head.take();
+        while let Some(node) = curr_list {
+            match Rc::try_unwrap(node) {
+                Err(_) => {
+                    break
+                },
+                Ok(mut x) => {
+                    curr_list = x.next.take()
+                }
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
     use super::*;
 
+    #[test]
+    fn basics() {
+        List::new().append(1);
+    }
     #[test]
     fn basic_mut_ops() {
         let upto = 10;
@@ -85,7 +103,7 @@ mod test {
 
         assert_eq!(Some(&9), list2.head());
 
-        for i in 1..upto {
+        for _ in 1..upto {
             list2 = list2.tail();
         }
 
@@ -118,5 +136,14 @@ mod test {
         }
 
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn drop() {
+        let mut list = List::new();
+        let upto = 100000;
+        for i in 1..upto {
+            list = list.append(i);
+        }
     }
 }
