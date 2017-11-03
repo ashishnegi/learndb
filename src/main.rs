@@ -4,6 +4,7 @@ mod list;
 mod genlist;
 mod consistency;
 mod persistentlist;
+mod deque;
 
 fn main() {
     let key = "hello";

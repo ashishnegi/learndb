@@ -85,6 +85,12 @@ impl<T> Drop for List<T> where T: fmt::Debug {
     }
 }
 
+impl<T> Drop for Node<T> where T: fmt::Debug {
+    fn drop(&mut self) {
+        println!("Node drop : {:?}", self.val);
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
