@@ -117,6 +117,25 @@ impl<T> Deque<T> where T: fmt::Debug {
             })
         })
     }
+
+    pub fn into_iter(self) -> IntoIter<T> {
+        IntoIter {
+            queue: self
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct IntoIter<T> where T: fmt::Debug {
+    queue: Deque<T>
+}
+
+impl<T> Iterator for IntoIter<T> where T: fmt::Debug {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.queue.pop_front()
+    }
 }
 
 
@@ -166,5 +185,17 @@ mod test {
         let mut queue : Deque<i32> = Deque::new();
         assert_eq!(None, queue.pop_back());
         assert_eq!(None, queue.pop_back());
+    }
+
+    #[test]
+    pub fn into_iter() {
+        let mut queue = Deque::new();
+        queue.push_front(1);
+        queue.push_back(2);
+
+        let mut iter = queue.into_iter();
+        assert_eq!(Some(1), iter.next());
+        assert_eq!(Some(2), iter.next());
+        assert_eq!(None, iter.next());
     }
 }
