@@ -75,17 +75,16 @@ mod test {
 
     #[test]
     fn hash() {
-        let (mut ashishHash, mut ashishnegiHash) = (0, 0);
-        {
-            let mut s = DefaultHasher::new();
-            "ashish".hash(&mut s);
-            ashishHash = s.finish();
-        }
-        {
-            let mut s = DefaultHasher::new();
-            "ashish negi".hash(&mut s);
-            ashishnegiHash = s.finish()
-        }
-        assert!(ashishHash != ashishnegiHash);
+        let ashish_hash;
+        let ashish_negi_hash;
+        let mut s = DefaultHasher::new();
+        "ashish".hash(&mut s);
+        ashish_hash = s.finish();
+
+        let mut s = DefaultHasher::new();
+        "ashish negi".hash(&mut s);
+        ashish_negi_hash = s.finish();
+
+        assert!(ashish_hash != ashish_negi_hash);
     }
 }

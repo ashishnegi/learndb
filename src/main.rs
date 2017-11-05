@@ -62,4 +62,13 @@ fn main() {
         let list2 = list.tail();
         println!("persistentlist: {:?}", list2);
     }
+
+    {
+        let mut queue = deque::Deque::new();
+        queue.push_front(1);
+        queue.push_front(2);
+        assert_eq!(2, *queue.peek_front().unwrap());
+        assert_eq!(Some(2), queue.pop_front());
+        assert_eq!(1, *queue.peek_front().unwrap());
+    }
 }
