@@ -2,6 +2,7 @@ use std::rc::Rc;
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::fmt;
+use std::iter::DoubleEndedIterator;
 
 type Link<T> = Option<Rc<RefCell<Node<T>>>>;
 
@@ -138,6 +139,28 @@ impl<T> Iterator for IntoIter<T> where T: fmt::Debug {
     }
 }
 
+impl<T> DoubleEndedIterator for IntoIter<T> where T: fmt::Debug {
+    fn next_back(&mut self) -> Option<T> {
+        self.queue.pop_back()
+    }
+}
+
+// #[derive(Debug)]
+// struct Iter<'a, T: 'a> where T: fmt::Debug {
+//     curr: Option<RefCell<Node<T>>>
+// }
+
+// impl<'a, T> Iterator for Iter<'a, T> where T: fmt::Debug {
+//     type Item = Ref<'a, T>;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         use std::ops::Deref;
+//         self.curr.take().map(|curr| {
+//             let curr = curr.borrow();
+//             self.curr = curr.next.as_ref().map(|next| &**next);
+//             Ref::map(curr, |node| &node.val)
+//         })
+//     }
+// }
 
 #[cfg(test)]
 mod test {
@@ -197,5 +220,20 @@ mod test {
         assert_eq!(Some(1), iter.next());
         assert_eq!(Some(2), iter.next());
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    pub fn double_ended_iter() {
+        let mut queue = Deque::new();
+        queue.push_front(1);
+        queue.push_back(2);
+        queue.push_back(3);
+
+        let mut iter = queue.into_iter();
+        assert_eq!(Some(1), iter.next());
+        assert_eq!(Some(3), iter.next_back());
+        assert_eq!(Some(2), iter.next());
+        assert_eq!(None, iter.next());
+        assert_eq!(None, iter.next_back());
     }
 }

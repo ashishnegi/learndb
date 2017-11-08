@@ -5,6 +5,7 @@ mod genlist;
 mod consistency;
 mod persistentlist;
 mod deque;
+mod unsafelist;
 
 fn main() {
     let key = "hello";
@@ -70,5 +71,10 @@ fn main() {
         assert_eq!(2, *queue.peek_front().unwrap());
         assert_eq!(Some(2), queue.pop_front());
         assert_eq!(1, *queue.peek_front().unwrap());
+    }
+
+    {
+        let mut queue = unsafelist::Queue::new();
+        queue.push(1);
     }
 }
