@@ -53,6 +53,30 @@ impl<T> Queue<T> {
             hv.val
         })
     }
+
+    pub fn peek(&self) -> Option<&T> {
+        self.head.as_ref().map(|head|{
+            &head.val
+        })
+    }
+
+    pub fn into_iter(self) -> IntoIter<T> {
+        IntoIter{ next: self }
+    }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            next: self.head.as_ref().map(|head| {
+                &**head
+            })
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut {
+            next : self.head.as_mut().map(|head| &mut **head)
+        }
+    }
 }
 
 impl<T> Node<T> {
@@ -61,6 +85,52 @@ impl<T> Node<T> {
             val: v,
             next: None
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct IntoIter<T> {
+    next: Queue<T>
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.pop()
+    }
+}
+
+#[derive(Debug)]
+pub struct Iter<'a, T : 'a> {
+    next: Option<&'a Node<T>>
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|next|{
+            self.next = next.next.as_ref().map(|next| {
+                &**next
+            });
+            &next.val
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct IterMut<'a, T : 'a> {
+    next: Option<&'a mut Node<T>>
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|next| {
+            self.next = next.next.as_mut().map(|next2| {
+                &mut **next2
+            });
+            &mut next.val
+        })
     }
 }
 
@@ -79,5 +149,61 @@ mod test {
         q2.push(2);
         assert_eq!(Some(2), q2.pop());
         assert_eq!(None, q2.pop());
+    }
+
+    #[test]
+    pub fn into_iter() {
+        let mut q = Queue::new();
+        q.push(1);
+        q.push(2);
+        q.push(3);
+
+        {
+            let mut iter = q.into_iter();
+            assert_eq!(Some(1), iter.next());
+            assert_eq!(Some(2), iter.next());
+            assert_eq!(Some(3), iter.next());
+            assert_eq!(None, iter.next());
+        }
+
+        // q.push(1); // compiler error.. :P
+    }
+
+    #[test]
+    pub fn iter() {
+        let mut q = Queue::new();
+        q.push(1);
+        q.push(2);
+        q.push(3);
+
+        {
+            let mut iter = q.iter();
+            assert_eq!(Some(&1), iter.next());
+            assert_eq!(Some(&2), iter.next());
+            assert_eq!(Some(&3), iter.next());
+            assert_eq!(None, iter.next());
+        }
+
+        assert_eq!(Some(&1), q.peek());
+        assert_eq!(Some(1), q.pop());
+    }
+
+    #[test]
+    pub fn iter_mut() {
+        let mut q = Queue::new();
+        q.push(1);
+        q.push(2);
+        q.push(3);
+
+        {
+            let mut iter = q.iter_mut();
+            assert_eq!(Some(&mut 1), iter.next());
+            assert_eq!(Some(&mut 2), iter.next());
+            assert_eq!(Some(&mut 3), iter.next());
+            assert_eq!(None, iter.next());
+        }
+
+        assert_eq!(Some(&1), q.peek());
+        assert_eq!(Some(1), q.pop());
     }
 }

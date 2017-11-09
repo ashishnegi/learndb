@@ -76,5 +76,9 @@ fn main() {
     {
         let mut queue = unsafelist::Queue::new();
         queue.push(1);
+        queue.push(2);
+        assert_eq!(1, *queue.peek().unwrap());
+        assert_eq!(Some(1), queue.pop());
+        assert_eq!(2, *queue.peek().unwrap());
     }
 }
