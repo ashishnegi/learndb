@@ -37,22 +37,22 @@ impl<T> Queue<T> {
         self.tail = raw_tail;
     }
 
-    // pub fn pop(&mut self) -> Option<T> {
-    //     self.head.take().map(|head| {
-    //         let hv = *head;
-    //         match hv.next {
-    //             None => {
-    //                 self.tail = None;
-    //                 self.head = None;
-    //             },
-    //             Some(_) => {
-    //                 self.head = hv.next;
-    //             }
-    //         };
+    pub fn pop(&mut self) -> Option<T> {
+        self.head.take().map(|head| {
+            let hv = *head;
+            match hv.next {
+                None => {
+                    self.tail = ptr::null_mut();
+                    self.head = None;
+                },
+                Some(_) => {
+                    self.head = hv.next;
+                }
+            };
 
-    //         hv.val
-    //     })
-    // }
+            hv.val
+        })
+    }
 }
 
 impl<T> Node<T> {
@@ -64,15 +64,20 @@ impl<T> Node<T> {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-//     #[test]
-//     pub fn basics() {
-//         let mut q = Queue::new();
-//         assert_eq!(None, q.pop());
-//         q.push(1);
-//         assert_eq!(Some(1), q.pop());
-//     }
-// }
+    #[test]
+    pub fn basics() {
+        let mut q = Queue::new();
+        assert_eq!(None, q.pop());
+        q.push(1);
+        assert_eq!(Some(1), q.pop());
+        assert_eq!(None, q.pop());
+        let mut q2 = q;
+        q2.push(2);
+        assert_eq!(Some(2), q2.pop());
+        assert_eq!(None, q2.pop());
+    }
+}
