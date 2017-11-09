@@ -11,8 +11,12 @@ fn main() {
     let key = "hello";
     use fileapi::Storage;
 
-    let storage = fileapi::FileStorage::new(String::from("./"));
-    assert!(storage.put_value(key, b"world").is_ok());
+    let mut storage = fileapi::FileStorage::new(String::from("./"), String::from("new_keys")).unwrap();
+
+    let put_result = storage.put_value(key, b"world");
+    println!("put_result: {:?}", put_result);
+
+    assert!(put_result.is_ok());
     assert!(storage.key_exists(key));
 
     {
@@ -52,7 +56,7 @@ fn main() {
     }
 
     {
-        consistency::Consistency::new(&storage);
+        consistency::Consistency::new(&mut storage);
     }
 
     {

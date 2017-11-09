@@ -12,11 +12,11 @@ const CONCURRENCY : usize = 1000;
 
 pub struct Consistency<'a> {
     locks: [RwLock<()>; CONCURRENCY],
-    storage: &'a Storage
+    storage: &'a mut Storage
 }
 
 impl<'a> Consistency<'a> {
-    pub fn new(storage: &'a Storage) -> Self {
+    pub fn new(storage: &'a mut Storage) -> Self {
         let array = unsafe {
             // Create an uninitialized array.
             let mut array: [RwLock<()>; CONCURRENCY] = mem::uninitialized();
@@ -42,7 +42,7 @@ impl<'a> Storage for Consistency<'a> {
         self.storage.get_value(key)
     }
 
-    fn put_value(&self, key : &str, value: &[u8]) -> Result<(), Error> {
+    fn put_value(&mut self, key : &str, value: &[u8]) -> Result<(), Error> {
         let index = self.hash_key(key);
         let _ = self.locks[index].write().unwrap();
         self.storage.put_value(key, value)
@@ -54,7 +54,7 @@ impl<'a> Storage for Consistency<'a> {
         self.storage.key_exists(key)
     }
 
-    fn delete_key(&self, key: &str) -> Result<(), Error> {
+    fn delete_key(&mut self, key: &str) -> Result<(), Error> {
         let index = self.hash_key(key);
         let _ = self.locks[index].write().unwrap();
         self.storage.delete_key(key)
@@ -86,5 +86,35 @@ mod test {
         ashish_negi_hash = s.finish();
 
         assert!(ashish_hash != ashish_negi_hash);
+    }
+
+    use std::collections::HashMap;
+    use std::io::ErrorKind;
+
+    #[derive(Debug)]
+    struct MemoryStorage {
+        data: HashMap<String, Vec<u8>>
+    }
+
+    impl Storage for MemoryStorage
+    {
+        fn get_value(&self, key : &str) -> Result<Vec<u8>, Error> {
+            self.data.get(key).map_or(Err(Error::new(ErrorKind::NotFound, "Key does not exists")),
+                |v| Ok(v.clone()))
+        }
+
+        fn put_value(&mut self, key : &str, value: &[u8]) -> Result<(), Error> {
+            self.data.insert(key.to_string(), Vec::from(value)).map_or(Err(Error::new(ErrorKind::Other, "Failed to write")),
+                |v| Ok(()))
+        }
+
+        fn key_exists(&self, key : &str) -> bool {
+            self.data.contains_key(key)
+        }
+
+        fn delete_key(&mut self, key: &str) -> Result<(), Error> {
+            self.data.remove(key).map_or(Err(Error::new(ErrorKind::NotFound, "Key does not exists")),
+                |v| Ok(()))
+        }
     }
 }

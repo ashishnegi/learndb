@@ -14,14 +14,15 @@ use std::fs::OpenOptions;
 
 pub trait Storage {
     fn get_value(&self, key : &str) -> Result<Vec<u8>, Error>;
-    fn put_value(&self, key : &str, value: &[u8]) -> Result<(), Error>;
+    fn put_value(&mut self, key : &str, value: &[u8]) -> Result<(), Error>;
     fn key_exists(&self, key : &str) -> bool;
-    fn delete_key(&self, key: &str) -> Result<(), Error>;
+    fn delete_key(&mut self, key: &str) -> Result<(), Error>;
 }
 
 #[derive(Debug)]
 pub struct FileStorage {
-    root_path: String
+    root_path: String,
+    new_key_dir: String
 }
 
 impl Storage for FileStorage {
@@ -32,31 +33,56 @@ impl Storage for FileStorage {
         Ok(contents)
     }
 
-    fn put_value(&self, key: &str, value: &[u8]) -> Result<(), Error> {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(self.full_path(key))?;
-        file.write_all(value)
+    fn put_value(&mut self, key: &str, value: &[u8]) -> Result<(), Error> {
+        let tmp_file_path = self.full_path_new_key(key);
+        {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(tmp_file_path.clone())?;
+            file.write_all(value);
+            file.flush();
+        }
+
+        // move file.
+        fs::rename(tmp_file_path, self.full_path(key))
     }
 
     fn key_exists(&self, key: &str) -> bool {
         fs::metadata(self.full_path(key)).is_ok()
     }
 
-    fn delete_key(&self, key: &str) -> Result<(), Error> {
+    fn delete_key(&mut self, key: &str) -> Result<(), Error> {
         fs::remove_file(self.full_path(key))
     }
 }
 
 impl FileStorage {
-    pub fn new(root_path : String) -> Self {
-        FileStorage {
-            root_path : root_path
-        }
+    pub fn new(root_path : String, new_key_dir: String) -> Result<Self, Error> {
+        let mut storage = FileStorage {
+            root_path: root_path,
+            new_key_dir: new_key_dir
+        };
+
+        storage.init();
+        Ok(storage)
+    }
+
+    fn init(&mut self) -> Result<(), Error> {
+        fs::create_dir(self.full_path_new_key(""))
     }
 
     fn full_path(&self, key: &str) -> String {
         format!("{}/{}", self.root_path.as_str(), key)
+    }
+
+    fn full_path_new_key(&self, key: &str) -> String {
+        format!("{}/{}/{}", self.root_path.as_str(), self.new_key_dir.as_str(), key)
+    }
+}
+
+impl Drop for FileStorage {
+    fn drop(&mut self) {
+        fs::remove_dir(self.full_path_new_key(""));
     }
 }
