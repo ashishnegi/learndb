@@ -6,6 +6,7 @@ mod consistency;
 mod persistentlist;
 mod deque;
 mod unsafelist;
+use std::sync::Arc;
 
 fn main() {
     let key = "hello";
@@ -56,7 +57,7 @@ fn main() {
     }
 
     {
-        consistency::Consistency::new(&mut storage);
+        consistency::Consistency::new(Arc::new(storage));
     }
 
     {

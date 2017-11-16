@@ -14,9 +14,9 @@ use std::fs::OpenOptions;
 
 pub trait Storage {
     fn get_value(&self, key : &str) -> Result<Vec<u8>, Error>;
-    fn put_value(&mut self, key : &str, value: &[u8]) -> Result<(), Error>;
+    fn put_value(&self, key : &str, value: &[u8]) -> Result<(), Error>;
     fn key_exists(&self, key : &str) -> bool;
-    fn delete_key(&mut self, key: &str) -> Result<(), Error>;
+    fn delete_key(&self, key: &str) -> Result<(), Error>;
 }
 
 #[derive(Debug)]
@@ -33,26 +33,35 @@ impl Storage for FileStorage {
         Ok(contents)
     }
 
-    fn put_value(&mut self, key: &str, value: &[u8]) -> Result<(), Error> {
+    fn put_value(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         let tmp_file_path = self.full_path_new_key(key);
+
+        use std::io::ErrorKind;
+        // println!("tmp_file_path : {}, full_file_path : {}", tmp_file_path, self.full_path(key));
+
         {
             let mut file = OpenOptions::new()
                 .write(true)
                 .create(true)
-                .open(tmp_file_path.clone())?;
-            file.write_all(value);
-            file.flush();
+                .open(tmp_file_path.clone())
+                .map_err(|e| Error::new(ErrorKind::NotFound, tmp_file_path.clone() + "open failed"))?;
+            file.write_all(value)
+                .map_err(|e| Error::new(ErrorKind::NotFound, "write_all failed"));
+            file.flush()
+                .map_err(|e| Error::new(ErrorKind::NotFound, "flush failed"));
         }
 
+        use std::{string, str};
         // move file.
-        fs::rename(tmp_file_path, self.full_path(key))
+        fs::rename(tmp_file_path.clone(), self.full_path(key))
+            .map_err(|e| Error::new(ErrorKind::NotFound, tmp_file_path.clone() + " " + str::from_utf8(value).unwrap() + " rename failed " + &e.to_string()))
     }
 
     fn key_exists(&self, key: &str) -> bool {
         fs::metadata(self.full_path(key)).is_ok()
     }
 
-    fn delete_key(&mut self, key: &str) -> Result<(), Error> {
+    fn delete_key(&self, key: &str) -> Result<(), Error> {
         fs::remove_file(self.full_path(key))
     }
 }
@@ -68,7 +77,7 @@ impl FileStorage {
         Ok(storage)
     }
 
-    fn init(&mut self) -> Result<(), Error> {
+    fn init(&self) -> Result<(), Error> {
         fs::create_dir(self.full_path_new_key(""))
     }
 
