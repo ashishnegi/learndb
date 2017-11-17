@@ -44,7 +44,7 @@ impl Storage for FileStorage {
                 .write(true)
                 .create(true)
                 .open(tmp_file_path.clone())
-                .map_err(|e| Error::new(ErrorKind::NotFound, tmp_file_path.clone() + "open failed"))?;
+                .map_err(|e| Error::new(ErrorKind::NotFound, tmp_file_path.clone() + " open failed"))?;
             file.write_all(value)
                 .map_err(|e| Error::new(ErrorKind::NotFound, "write_all failed"));
             file.flush()
@@ -78,6 +78,7 @@ impl FileStorage {
     }
 
     fn init(&self) -> Result<(), Error> {
+        fs::create_dir(self.full_path(""))?;
         fs::create_dir(self.full_path_new_key(""))
     }
 
@@ -93,5 +94,6 @@ impl FileStorage {
 impl Drop for FileStorage {
     fn drop(&mut self) {
         fs::remove_dir(self.full_path_new_key(""));
+        fs::remove_dir(self.full_path(""));
     }
 }

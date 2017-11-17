@@ -122,7 +122,6 @@ mod test {
     extern crate rand;
     use self::rand::Rng;
     use std::thread;
-    use std::sync::Arc;
     use fileapi;
     use std::str;
     use std::thread::JoinHandle;
@@ -131,7 +130,7 @@ mod test {
     fn multiple_threads_bombing_storage() {
         const parallels : usize = 10;
                           // MemoryStorage { data: HashMap::new() };
-        let consistentArc = Arc::new(Consistency::new(Arc::new(fileapi::FileStorage::new(String::from("."), String::from("new_keys")).unwrap())));
+        let consistentArc = Arc::new(Consistency::new(Arc::new(fileapi::FileStorage::new(String::from("./multi"), String::from("multi_new_keys")).unwrap())));
 
         // create all keys.
         let mut keys = Vec::<String>::new();
@@ -151,17 +150,13 @@ mod test {
             let mut rng = rand::thread_rng();
             rng.shuffle(keys);
 
-            println!("to_write: {:?} :: keys : {:?}", to_write, keys);
-
             for key in keys {
                 let mut val = consistency.get_value(key).unwrap();
                 val.append(&mut vec![13,10]);
                 val.append(to_write.clone().as_mut());
-                // println!("putting {:?} : {} {:?}", to_write, key, val);
+                // after i have read value, some other thread would have modified on file.
+                // so only last writer wins.
                 consistency.put_value(key, &val).unwrap();
-                let mut read_back = consistency.get_value(key).unwrap();
-                assert_eq!(val, read_back);
-                // println!("done pu : {} {}", key, value);
             }
         });
 
@@ -173,8 +168,8 @@ mod test {
             let handle = thread::spawn(move || {
                 write_thread(t.to_string().into_bytes(), &mut keys);
             });
-            handle.join().unwrap();
-            // handles.push(handle);
+
+            handles.push(handle);
         }
 
         // wait for all threads..
@@ -182,16 +177,65 @@ mod test {
             h.join().unwrap();
         }
 
-        thread::sleep_ms(1000);
+        for key in keys.clone() {
+            consistentArc.delete_key(&key).unwrap();
+        }
 
         // check if all parallels keys have all numbers in any order.
-        for key in keys.clone() {
-            let val = consistentArc.get_value(&key).unwrap();
-            let val_str = str::from_utf8(&val).unwrap();
-            let mut vals : Vec<usize> = val_str.split("\r\n").map(|v| v.parse().unwrap()).collect();
-            vals.sort();
-            let expected : Vec<usize> = (0..parallels).collect();
-            assert_eq!(vals, expected, "For file : {}" ,  key);
+        // NOT POSSIBLE : see comment in write_thread.
+        // for key in keys.clone() {
+        //     let val = consistentArc.get_value(&key).unwrap();
+        //     let val_str = str::from_utf8(&val).unwrap();
+        //     let mut vals : Vec<usize> = val_str.split("\r\n").map(|v| v.parse().unwrap()).collect();
+        //     vals.sort();
+        //     let expected : Vec<usize> = (0..parallels).collect();
+        //     assert_eq!(vals, expected, "For file : {}" ,  key);
+        // }
+    }
+
+    #[test]
+    pub fn deadlock_test() {
+        // 1000 threads, each doing 10 writes, 1 on each of 10 files.
+        let mut handles = Vec::new();
+        const PARALLELS :usize = 1000;
+        const NUM_KEYS :usize = 10;
+
+        let consistent = Arc::new(Consistency::new(Arc::new(fileapi::FileStorage::new(String::from("./deadlock"), String::from("deadlock_new_keys")).unwrap())));
+
+        let consistency = consistent.clone();
+
+        let write_thread = Arc::new(move |thread_id : usize| {
+            let mut keys :Vec<usize> = (1..NUM_KEYS).collect();
+            let mut rng = rand::thread_rng();
+            rng.shuffle(&mut keys);
+
+            for k in keys.iter() {
+                let r = rng.next_u32() % 10;
+                let key = &k.to_string();
+                if (r < 10) {
+                    consistency.put_value(key, &[1,2,3]).unwrap(); // should never fail.
+                } else if (r < 95) {
+                    consistency.get_value(key); // it can fail if key does not exists.
+                } else {
+                    consistency.delete_key(key); // will fail if key does not exists.
+                }
+            }
+        });
+
+        for i in 1..PARALLELS {
+            let write_thread = write_thread.clone();
+            let handle = thread::spawn(move || write_thread(i));
+            handles.push(handle);
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        for key in (1..NUM_KEYS).map(|v| v.to_string()) {
+            if consistent.key_exists(&key) {
+                consistent.delete_key(&key).unwrap();
+            }
         }
     }
 }
