@@ -151,12 +151,16 @@ mod test {
             let mut rng = rand::thread_rng();
             rng.shuffle(keys);
 
+            println!("to_write: {:?} :: keys : {:?}", to_write, keys);
+
             for key in keys {
                 let mut val = consistency.get_value(key).unwrap();
                 val.append(&mut vec![13,10]);
                 val.append(to_write.clone().as_mut());
                 // println!("putting {:?} : {} {:?}", to_write, key, val);
                 consistency.put_value(key, &val).unwrap();
+                let mut read_back = consistency.get_value(key).unwrap();
+                assert_eq!(val, read_back);
                 // println!("done pu : {} {}", key, value);
             }
         });
@@ -169,13 +173,16 @@ mod test {
             let handle = thread::spawn(move || {
                 write_thread(t.to_string().into_bytes(), &mut keys);
             });
-            handles.push(handle);
+            handle.join().unwrap();
+            // handles.push(handle);
         }
 
         // wait for all threads..
         for h in handles {
-            h.join();
+            h.join().unwrap();
         }
+
+        thread::sleep_ms(1000);
 
         // check if all parallels keys have all numbers in any order.
         for key in keys.clone() {
@@ -184,7 +191,7 @@ mod test {
             let mut vals : Vec<usize> = val_str.split("\r\n").map(|v| v.parse().unwrap()).collect();
             vals.sort();
             let expected : Vec<usize> = (0..parallels).collect();
-            assert_eq!(vals, expected);
+            assert_eq!(vals, expected, "For file : {}" ,  key);
         }
     }
 }
