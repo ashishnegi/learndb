@@ -5,6 +5,8 @@ use std::io::prelude::Write;
 use std::io::prelude::Read;
 use std::fs::OpenOptions;
 
+use transactional::{Transactional, WriteUnit};
+
 // We give apis :
 // create_key : creates a persisted key with value.
 // get_value : get value for a key.
@@ -12,7 +14,7 @@ use std::fs::OpenOptions;
 // key_exists : check if key exists.
 // delete_key : deletes the key.
 
-pub trait Storage {
+pub trait Storage : Transactional {
     fn get_value(&self, key : &str) -> Result<Vec<u8>, Error>;
     fn put_value(&self, key : &str, value: &[u8]) -> Result<(), Error>;
     fn key_exists(&self, key : &str) -> bool;
@@ -46,9 +48,9 @@ impl Storage for FileStorage {
                 .open(tmp_file_path.clone())
                 .map_err(|e| Error::new(ErrorKind::NotFound, tmp_file_path.clone() + " open failed"))?;
             file.write_all(value)
-                .map_err(|e| Error::new(ErrorKind::NotFound, "write_all failed"));
+                .map_err(|e| Error::new(ErrorKind::NotFound, "write_all failed"))?;
             file.flush()
-                .map_err(|e| Error::new(ErrorKind::NotFound, "flush failed"));
+                .map_err(|e| Error::new(ErrorKind::NotFound, "flush failed"))?;
         }
 
         use std::{string, str};
@@ -95,5 +97,31 @@ impl Drop for FileStorage {
     fn drop(&mut self) {
         fs::remove_dir(self.full_path_new_key(""));
         fs::remove_dir(self.full_path(""));
+    }
+}
+
+impl Transactional for FileStorage {
+    fn write_multiple_keys(&self, units :&Vec<WriteUnit>) -> Result<(), Error> {
+        for wu in units {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(self.full_path_new_key(&wu.key))?;
+
+            file.write_all(&wu.value)?;
+            file.flush()?;
+        }
+        // write all is good :)
+        // now move all files.
+        // what if one of the move fails ?
+        // need to backup old ones ; and restore from there.
+        // but restore can also fail ; at this time, manual intervention is required
+        // TODO: better to panic at this case.
+        for wu in units {
+            fs::rename(self.full_path_new_key(&wu.key), self.full_path(&wu.key))?;
+        }
+
+        // all is good :)
+        Ok(())
     }
 }

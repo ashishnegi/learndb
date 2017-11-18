@@ -6,13 +6,14 @@ mod consistency;
 mod persistentlist;
 mod deque;
 mod unsafelist;
+mod transactional;
 use std::sync::Arc;
 
 fn main() {
     let key = "hello";
     use fileapi::Storage;
 
-    let mut storage = fileapi::FileStorage::new(String::from("./"), String::from("new_keys")).unwrap();
+    let storage = fileapi::FileStorage::new(String::from("./storage"), String::from("new_keys")).unwrap();
 
     let put_result = storage.put_value(key, b"world");
     println!("put_result: {:?}", put_result);

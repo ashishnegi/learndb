@@ -7,6 +7,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use transactional::{Transactional, WriteUnit};
+
 // Consistency layer of read/write locks over fileapi.
 
 const CONCURRENCY : usize = 1000;
@@ -67,6 +69,39 @@ impl Consistency {
         let mut s = DefaultHasher::new();
         key.hash(&mut s);
         (s.finish() as usize) % CONCURRENCY
+    }
+}
+
+impl Transactional for Consistency {
+    fn write_multiple_keys(&self, units :&Vec<WriteUnit>) -> Result<(), Error> {
+        let mut taken_locks = Vec::new();
+        let mut tries = 0;
+        let mut all_locked = false;
+
+        while !all_locked && (tries < 10) {
+            all_locked = true;
+            for wu in units {
+                let index = self.hash_key(&wu.key);
+                let r1 = self.locks[index].try_write();
+                if r1.is_err() {
+                    // release all locks and retry.
+                    taken_locks.clear();
+                    all_locked = false;
+                    break;
+                }
+
+                taken_locks.push(r1);
+            }
+
+            tries = tries + 1;
+        }
+
+        if all_locked {
+            self.storage.write_multiple_keys(units)
+        } else {
+            use std::io::ErrorKind;
+            Err(Error::new(ErrorKind::Other, "Failed to acquire locks in multiple tries."))
+        }
     }
 }
 
@@ -204,7 +239,7 @@ mod test {
 
         let consistency = consistent.clone();
 
-        let write_thread = Arc::new(move |thread_id : usize| {
+        let write_thread = Arc::new(move || {
             let mut keys :Vec<usize> = (1..NUM_KEYS).collect();
             let mut rng = rand::thread_rng();
             rng.shuffle(&mut keys);
@@ -224,7 +259,7 @@ mod test {
 
         for i in 1..PARALLELS {
             let write_thread = write_thread.clone();
-            let handle = thread::spawn(move || write_thread(i));
+            let handle = thread::spawn(move || write_thread());
             handles.push(handle);
         }
 

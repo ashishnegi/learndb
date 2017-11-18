@@ -1,5 +1,3 @@
-use consistency::Consistency;
-
 // 1. Try to take all locks that we need from consistency layer.
 // 2. If got all locks, then perform the operations in tmp state one by one.
 // 3. If any operation failed, rollback i.e. clean up tmp state.
@@ -18,3 +16,18 @@ use consistency::Consistency;
 //      Shouldn't Transaction be just a trait and let the Consistency implement it ?
 //      So that trait will be write_multiple_keys( [Write(key,value)] )
 
+// step 2, 3 and 4 :
+//      It seems like they will be better to do in Storage layer only.
+//      Api: write_multiple_keys
+
+use std::io::Error;
+
+#[derive(Debug)]
+pub struct WriteUnit {
+    pub key: String,
+    pub value: Vec<u8>
+}
+
+pub trait Transactional {
+    fn write_multiple_keys(&self, units :&Vec<WriteUnit>) -> Result<(), Error>;
+}
