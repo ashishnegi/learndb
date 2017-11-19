@@ -1,4 +1,9 @@
+extern crate rand;
+
+use self::rand::Rng;
 use std::sync::RwLock;
+use std::thread;
+
 use fileapi::Storage;
 use std::mem;
 use std::ptr;
@@ -16,11 +21,14 @@ const CONCURRENCY : usize = 1000;
 pub struct Consistency {
     locks: [RwLock<()>; CONCURRENCY],
     storage: Arc<Storage+Sync+Send>,
-    transaction_retires: u32
+    transaction_retires: u32,
+    transaction_retry_wait_ms: u32
 }
 
 impl Consistency {
-    pub fn new(storage: Arc<Storage+Sync+Send>, transaction_retires: u32) -> Self {
+    pub fn new(storage: Arc<Storage+Sync+Send>,
+               transaction_retires: u32,
+               transaction_retry_wait_ms: u32 ) -> Self {
         let array = unsafe {
             // Create an uninitialized array.
             let mut array: [RwLock<()>; CONCURRENCY] = mem::uninitialized();
@@ -35,7 +43,8 @@ impl Consistency {
         Consistency {
             locks : array,
             storage: storage,
-            transaction_retires: transaction_retires
+            transaction_retires: transaction_retires,
+            transaction_retry_wait_ms: transaction_retry_wait_ms
         }
     }
 }
@@ -80,8 +89,10 @@ impl Transactional for Consistency {
         let mut tries = 0;
         let mut all_locked = false;
 
+        let mut rng = rand::thread_rng();
+
         // TODO: add random sleep after N tries.
-        while !all_locked && (tries < self.transaction_retires)
+        while tries < self.transaction_retires
         {
             all_locked = true;
             for wu in units {
@@ -98,6 +109,15 @@ impl Transactional for Consistency {
             }
 
             tries = tries + 1;
+
+            if all_locked {
+                break
+            }
+
+            // sleep for random ms.
+            let sleep_for = self.transaction_retry_wait_ms * tries * ((rng.next_u32() % 10) + 1);
+            println!("Sleeping for {}", sleep_for);
+            thread::sleep_ms(sleep_for);
         }
 
         if all_locked {
@@ -159,8 +179,6 @@ mod test {
     //     }
     // }
 
-    extern crate rand;
-    use self::rand::Rng;
     use std::thread;
     use fileapi;
     use std::str;
@@ -173,7 +191,8 @@ mod test {
         let consistent_Arc = Arc::new(Consistency::new(
 
             Arc::new(fileapi::FileStorage::new(String::from("./multi"), String::from("multi_new_keys")).unwrap()),
-            10));
+            10,
+            1));
 
         // create all keys.
         let mut keys = Vec::<String>::new();
@@ -245,7 +264,8 @@ mod test {
 
         let consistent = Arc::new(Consistency::new(
             Arc::new(fileapi::FileStorage::new(String::from("./deadlock"), String::from("deadlock_new_keys")).unwrap()),
-            10));
+            10,
+            1));
 
         let consistency = consistent.clone();
 
@@ -294,7 +314,8 @@ mod test {
 
         let consistent = Arc::new(Consistency::new(
             Arc::new(fileapi::FileStorage::new(String::from("./transactional"), String::from("transactional_new_keys")).unwrap()),
-            10));
+            10,
+            1));
 
         let consistency = consistent.clone();
 
