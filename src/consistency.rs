@@ -15,11 +15,12 @@ const CONCURRENCY : usize = 1000;
 
 pub struct Consistency {
     locks: [RwLock<()>; CONCURRENCY],
-    storage: Arc<Storage+Sync+Send>
+    storage: Arc<Storage+Sync+Send>,
+    transaction_retires: u32
 }
 
 impl Consistency {
-    pub fn new(storage: Arc<Storage+Sync+Send>) -> Self {
+    pub fn new(storage: Arc<Storage+Sync+Send>, transaction_retires: u32) -> Self {
         let array = unsafe {
             // Create an uninitialized array.
             let mut array: [RwLock<()>; CONCURRENCY] = mem::uninitialized();
@@ -33,7 +34,8 @@ impl Consistency {
 
         Consistency {
             locks : array,
-            storage: storage
+            storage: storage,
+            transaction_retires: transaction_retires
         }
     }
 }
@@ -79,7 +81,7 @@ impl Transactional for Consistency {
         let mut all_locked = false;
 
         // TODO: add random sleep after N tries.
-        while !all_locked && (tries < 10)
+        while !all_locked && (tries < self.transaction_retires)
         {
             all_locked = true;
             for wu in units {
@@ -99,6 +101,7 @@ impl Transactional for Consistency {
         }
 
         if all_locked {
+            println!("Acquired all locks : writing values");
             self.storage.write_multiple_keys(units)
         } else {
             use std::io::ErrorKind;
@@ -126,8 +129,8 @@ mod test {
         assert!(ashish_hash != ashish_negi_hash);
     }
 
-    use std::collections::HashMap;
-    use std::io::ErrorKind;
+    // use std::collections::HashMap;
+    // use std::io::ErrorKind;
 
     // #[derive(Debug)]
     // struct MemoryStorage {
@@ -165,23 +168,26 @@ mod test {
 
     #[test]
     fn multiple_threads_bombing_storage() {
-        const parallels : usize = 10;
+        const PARALLELS : usize = 10;
                           // MemoryStorage { data: HashMap::new() };
-        let consistentArc = Arc::new(Consistency::new(Arc::new(fileapi::FileStorage::new(String::from("./multi"), String::from("multi_new_keys")).unwrap())));
+        let consistent_Arc = Arc::new(Consistency::new(
+
+            Arc::new(fileapi::FileStorage::new(String::from("./multi"), String::from("multi_new_keys")).unwrap()),
+            10));
 
         // create all keys.
         let mut keys = Vec::<String>::new();
-        for k in 1..parallels {
+        for k in 1..PARALLELS {
             keys.push(k.to_string());
         }
 
         let zero = "0".as_bytes();
         // put default values in files.
         for key in keys.clone() {
-            consistentArc.put_value(&key, zero).unwrap();
+            consistent_Arc.put_value(&key, zero).unwrap();
         }
 
-        let consistency = consistentArc.clone();
+        let consistency = consistent_Arc.clone();
         // test write threads
         let write_thread = Arc::new(move |to_write: Vec<u8>, keys: &mut Vec<String>| {
             let mut rng = rand::thread_rng();
@@ -198,8 +204,8 @@ mod test {
         });
 
         let mut handles = Vec::<JoinHandle<()>>::new();
-        // start parallels threads..
-        for t in 1..parallels {
+        // start PARALLELS threads..
+        for t in 1..PARALLELS {
             let write_thread = write_thread.clone();
             let mut keys = keys.clone();
             let handle = thread::spawn(move || {
@@ -215,17 +221,17 @@ mod test {
         }
 
         for key in keys.clone() {
-            consistentArc.delete_key(&key).unwrap();
+            consistent_Arc.delete_key(&key).unwrap();
         }
 
-        // check if all parallels keys have all numbers in any order.
+        // check if all PARALLELS keys have all numbers in any order.
         // NOT POSSIBLE : see comment in write_thread.
         // for key in keys.clone() {
-        //     let val = consistentArc.get_value(&key).unwrap();
+        //     let val = consistent_Arc.get_value(&key).unwrap();
         //     let val_str = str::from_utf8(&val).unwrap();
         //     let mut vals : Vec<usize> = val_str.split("\r\n").map(|v| v.parse().unwrap()).collect();
         //     vals.sort();
-        //     let expected : Vec<usize> = (0..parallels).collect();
+        //     let expected : Vec<usize> = (0..PARALLELS).collect();
         //     assert_eq!(vals, expected, "For file : {}" ,  key);
         // }
     }
@@ -237,7 +243,9 @@ mod test {
         const PARALLELS :usize = 1000;
         const NUM_KEYS :usize = 10;
 
-        let consistent = Arc::new(Consistency::new(Arc::new(fileapi::FileStorage::new(String::from("./deadlock"), String::from("deadlock_new_keys")).unwrap())));
+        let consistent = Arc::new(Consistency::new(
+            Arc::new(fileapi::FileStorage::new(String::from("./deadlock"), String::from("deadlock_new_keys")).unwrap()),
+            10));
 
         let consistency = consistent.clone();
 
@@ -249,9 +257,9 @@ mod test {
             for k in keys.iter() {
                 let r = rng.next_u32() % 10;
                 let key = &k.to_string();
-                if (r < 10) {
+                if r < 10 {
                     consistency.put_value(key, &[1,2,3]).unwrap(); // should never fail.
-                } else if (r < 95) {
+                } else if r < 95 {
                     consistency.get_value(key); // it can fail if key does not exists.
                 } else {
                     consistency.delete_key(key); // will fail if key does not exists.
@@ -259,7 +267,7 @@ mod test {
             }
         });
 
-        for i in 1..PARALLELS {
+        for _ in 1..PARALLELS {
             let write_thread = write_thread.clone();
             let handle = thread::spawn(move || write_thread());
             handles.push(handle);
@@ -285,8 +293,8 @@ mod test {
         const NUM_KEYS :usize = 10;
 
         let consistent = Arc::new(Consistency::new(
-            Arc::new(fileapi::FileStorage::new(String::from("./transactional"),
-                                               String::from("transactional_new_keys")).unwrap())));
+            Arc::new(fileapi::FileStorage::new(String::from("./transactional"), String::from("transactional_new_keys")).unwrap()),
+            10));
 
         let consistency = consistent.clone();
 

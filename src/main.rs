@@ -58,7 +58,7 @@ fn main() {
     }
 
     {
-        consistency::Consistency::new(Arc::new(storage));
+        consistency::Consistency::new(Arc::new(storage), 10);
     }
 
     {
