@@ -75,7 +75,7 @@ impl FileStorage {
             new_key_dir: new_key_dir
         };
 
-        storage.init();
+        storage.init()?;
         Ok(storage)
     }
 
@@ -97,28 +97,37 @@ impl Drop for FileStorage {
     fn drop(&mut self) {
         fs::remove_dir(self.full_path_new_key(""));
         fs::remove_dir(self.full_path(""));
+        println!("Deleted FileStorage.");
     }
 }
 
 impl Transactional for FileStorage {
     fn write_multiple_keys(&self, units :&Vec<WriteUnit>) -> Result<(), Error> {
+        use std::io::ErrorKind;
+
         for wu in units {
             let mut file = OpenOptions::new()
                 .write(true)
                 .create(true)
-                .open(self.full_path_new_key(&wu.key))?;
+                .open(self.full_path_new_key(&wu.key))
+                .map_err(|e| Error::new(ErrorKind::NotFound, self.full_path_new_key(&wu.key).clone() + " open failed"))?;
 
-            file.write_all(&wu.value)?;
-            file.flush()?;
+            file.write_all(&wu.value)
+                .map_err(|e| Error::new(ErrorKind::NotFound, " write_all failed"))?;
+            file.flush()
+                .map_err(|e| Error::new(ErrorKind::NotFound, " flush failed"))?;
         }
-        // write all is good :)
+
+        // if we are here, all files are written :)
+
         // now move all files.
         // what if one of the move fails ?
         // need to backup old ones ; and restore from there.
         // but restore can also fail ; at this time, manual intervention is required
         // TODO: better to panic at this case.
         for wu in units {
-            fs::rename(self.full_path_new_key(&wu.key), self.full_path(&wu.key))?;
+            fs::rename(self.full_path_new_key(&wu.key), self.full_path(&wu.key))
+                .map_err(|e| Error::new(ErrorKind::NotFound, " rename failed"))?;
         }
 
         // all is good :)

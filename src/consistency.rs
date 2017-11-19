@@ -78,7 +78,9 @@ impl Transactional for Consistency {
         let mut tries = 0;
         let mut all_locked = false;
 
-        while !all_locked && (tries < 10) {
+        // TODO: add random sleep after N tries.
+        while !all_locked && (tries < 10)
+        {
             all_locked = true;
             for wu in units {
                 let index = self.hash_key(&wu.key);
@@ -265,6 +267,61 @@ mod test {
 
         for h in handles {
             h.join().unwrap();
+        }
+
+        for key in (1..NUM_KEYS).map(|v| v.to_string()) {
+            if consistent.key_exists(&key) {
+                consistent.delete_key(&key).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    pub fn transactional() {
+        // each thread writes in all files its own unique value.
+        // at the end of all tests fired, each file should have only same value.
+        let mut handles = Vec::new();
+        const PARALLELS :usize = 10;
+        const NUM_KEYS :usize = 10;
+
+        let consistent = Arc::new(Consistency::new(
+            Arc::new(fileapi::FileStorage::new(String::from("./transactional"),
+                                               String::from("transactional_new_keys")).unwrap())));
+
+        let consistency = consistent.clone();
+
+        let write_thread = Arc::new(move |thread_id: usize| {
+            let mut keys :Vec<usize> = (1..NUM_KEYS).collect();
+            let mut rng = rand::thread_rng();
+            rng.shuffle(&mut keys);
+            let mut write_units = Vec::new();
+            for k in keys {
+                write_units.push(WriteUnit{
+                    key: k.to_string(),
+                    value: thread_id.to_string().into_bytes()
+                })
+            }
+
+            use std::error::Error;
+            match consistency.write_multiple_keys(&write_units) {
+                Err(err) => assert!(err.description().contains("Failed to acquire locks in multiple tries")),
+                Ok(_) => ()
+            }
+        });
+
+        for i in 1..PARALLELS {
+            let write_thread = write_thread.clone();
+            let handle = thread::spawn(move || write_thread(i));
+            handles.push(handle);
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let expected_value = consistent.get_value("1").unwrap();
+        for key in (2..NUM_KEYS).map(|v| v.to_string()) {
+            assert_eq!(expected_value, consistent.get_value(&key).unwrap(), "All files don't have same value");
         }
 
         for key in (1..NUM_KEYS).map(|v| v.to_string()) {
