@@ -14,7 +14,7 @@ pub fn process_sql_command(command : &str)
 fn execute_statement(statement: statement::Statement)
 {
     match statement {
-        statement::Statement::Insert => {
+        statement::Statement::Insert(_insert_statement) => {
             println!("Executed Insert :P")
         },
         statement::Statement::Select => {
