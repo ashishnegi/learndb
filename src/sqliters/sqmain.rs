@@ -22,10 +22,8 @@ pub fn sq_main() {
         };
 
         match result {
-            Err(msg) => {
-                println!("{}", msg)
-            },
-            _ => {},
+            Err(msg) => println!("{}", msg),
+            _ => println!("Executed.")
         }
     }
 }
