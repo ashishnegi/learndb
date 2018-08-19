@@ -5,7 +5,7 @@ const PAGE_SIZE: usize = 2046;
 const TABLE_MAX_PAGES: usize = 100;
 const ROW_SIZE: usize = statement::INSERT_STATEMENT_SIZE;
 const ROWS_PER_PAGE: usize = PAGE_SIZE / ROW_SIZE;
-// const TABLE_MAX_ROWS: usize = ROWS_PER_PAGE * PAGE_SIZE;
+pub const TABLE_MAX_ROWS: usize = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 
 pub struct Table {
     pages: Vec<Vec<u8>>,
@@ -21,11 +21,11 @@ impl Table {
     }
 
     pub fn row_slot(&mut self, row_num: usize) -> Result<&mut [u8], String> {
-        let page_num = row_num / ROWS_PER_PAGE;
-        if page_num >= TABLE_MAX_PAGES {
-            return Err(format!("{} row is out of space allocated to table.", row_num))
+        if row_num >= TABLE_MAX_ROWS {
+            return Err(format!("{} row is out of space allocated to table {}", row_num, TABLE_MAX_ROWS))
         }
 
+        let page_num = row_num / ROWS_PER_PAGE;
         let row_offset = (row_num % ROWS_PER_PAGE) * ROW_SIZE;
         if self.pages[page_num].len() == 0 {
             self.pages[page_num] = vec![0; PAGE_SIZE];
