@@ -7,7 +7,7 @@ pub struct Pager {
     pages: Vec<Vec<u8>>,
     db_file: fs::File,
     db_filepath: String,
-    num_db_pages: u64,
+    filesize: u64,
     page_size: usize,
     max_pages: usize
 }
@@ -20,7 +20,7 @@ impl Pager {
             pages: iter::repeat(vec![]).take(max_pages).collect(),
             db_file: file,
             db_filepath: String::from(db_filepath),
-            num_db_pages: get_num_pages(db_filepath, page_size as u64)?,
+            filesize: get_filesize(db_filepath)?,
             page_size: page_size,
             max_pages: max_pages
         })
@@ -33,7 +33,7 @@ impl Pager {
 
         if self.pages[page_num].len() == 0 {
             self.pages[page_num] = vec![0; self.page_size];
-            if self.num_db_pages > page_num as u64 {
+            if self.num_db_pages() > page_num as u64 {
                 // page is present in db file
                 self.read_page_from_file(page_num)?;
             }
@@ -58,7 +58,7 @@ impl Pager {
             .map_err(|e| format!("Error in read to offset {} : error {}", page_offset, e))?;
 
         if bytes_read != page_buffer.len() {
-            return Err(format!("Could not read full page_buffer : bytes_read {} : page_buffer_len {}", bytes_read, page_buffer.len()))
+            println!("Could not read full page_buffer : bytes_read {} : page_buffer_len {}", bytes_read, page_buffer.len());
         }
 
         Ok(())
@@ -68,26 +68,46 @@ impl Pager {
         fs::remove_file(self.db_filepath.as_str()).map_err(|e| format!("Unable to delete db_file : error {}", e.to_string()))
     }
 
-    pub fn close_db(&mut self) -> Result<(), String> {
-        for page_pos in 0..self.pages.len() {
-            let page = &self.pages[page_pos];
-            if page.len() != 0 {
-                self.db_file.write(page.as_slice())
-                    .map_err(|e| format!("Failed to write file {}", e))?;
-            } else {
-                self.db_file.seek(io::SeekFrom::Start((page_pos * self.page_size) as u64))
-                    .map_err(|e| format!("Failed to seek in db file {}", e))?;
-            }
+    pub fn flush_page(&mut self, page_pos: usize, page_size: usize) -> Result<(), String> {
+        if page_pos >= self.pages.len() {
+            return Err(format!("Page pos {} is greater than total number of pages.", self.pages.len()))
         }
 
-        self.db_file.flush()
-            .map_err(|e| format!("Failed to flush the db_file to disk : error : {}", e))?;
+        let page = &self.pages[page_pos];
+
+        if page.len() != 0 { // never bought in memory and never written ; so flush is no-op
+            if page.len() < page_size {
+                return Err(format!("Page size {} is smaller than the size to flush {}", page.len(), page_size))
+            }
+            self.db_file.seek(io::SeekFrom::Start((page_pos * self.page_size) as u64))
+                    .map_err(|e| format!("Failed to seek in db file {}", e))?;
+
+            self.db_file.write(&page[..page_size])
+                .map_err(|e| format!("Failed to write file {}", e))?;
+        }
 
         Ok(())
     }
 
-    pub fn num_pages(&self) -> u64 {
-        return self.num_db_pages;
+    fn num_db_pages(&self) -> u64 {
+        let full_pages = self.num_db_full_pages();
+        if self.last_page_size() != 0 {
+            return full_pages + 1;
+        }
+        return full_pages;
+    }
+
+    pub fn num_db_full_pages(&self) -> u64 {
+        return self.filesize / (self.page_size as u64);
+    }
+
+    pub fn last_page_size(&self) -> u64 {
+        return self.filesize % (self.page_size as u64);
+    }
+
+    pub fn close_db(&mut self) -> Result<(), String> {
+        self.db_file.flush()
+            .map_err(|e| format!("Failed to flush the db_file to disk : error : {}", e))
     }
 }
 
@@ -110,13 +130,7 @@ fn open_or_create_db_file(db_filepath: &str) -> Result<fs::File, String> {
     }
 }
 
-fn get_num_pages(db_filepath: &str, page_size: u64) -> Result<u64, String> {
-    let file_len = fs::metadata(db_filepath)
-        .map_err(|e| format!("Unable to get metadata of file {} : error {}", db_filepath, e))?.len();
-    let num_pages = file_len / page_size;
-    if file_len % page_size == 0 {
-        Ok(num_pages)
-    } else {
-        Err(format!("Half pages found in file {} : len {} : page_size {}", db_filepath, file_len, page_size))
-    }
+fn get_filesize(db_filepath: &str) -> Result<u64, String> {
+    Ok(fs::metadata(db_filepath)
+        .map_err(|e| format!("Unable to get metadata of file {} : error {}", db_filepath, e))?.len())
 }

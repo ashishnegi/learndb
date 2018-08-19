@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use sqliters::{metacommands, sqlcommands, table};
 
 pub fn sq_main() {
-    let mut table = table::Table::new("sqlitere.db").expect("Unable to open/create db file.");
+    let mut table = table::Table::new("sqliters.db").expect("Unable to open/create db file.");
 
     loop
     {

@@ -15,10 +15,19 @@ pub struct Table {
 impl Table {
     pub fn new(db_filepath: &str) -> Result<Self, String> {
         let pager = pager::Pager::new(PAGE_SIZE, TABLE_MAX_PAGES, db_filepath)?;
-        let num_pages = pager.num_pages() as usize;
+        let last_page_size = pager.last_page_size();
+        let last_num_rows = last_page_size / (ROW_SIZE as u64);
+
+        if last_page_size % (ROW_SIZE as u64) != 0 {
+            // data corruption. // we can even truncate rest of file.
+            return Err(format!("Half rows found in file {} : last_page_size {} : page_size {}",
+                db_filepath, last_page_size, PAGE_SIZE))
+        }
+
+        let num_rows = pager.num_db_full_pages() * (ROWS_PER_PAGE as u64) + last_num_rows;
         Ok(Table {
             pager: pager,
-            num_rows: num_pages * ROWS_PER_PAGE
+            num_rows: num_rows as usize
         })
     }
 
@@ -61,6 +70,24 @@ impl Table {
     }
 
     pub fn close_db(&mut self) -> Result<(), String> {
-        self.pager.close_db()
+        for page_num in 0..(self.num_rows / ROWS_PER_PAGE) {
+            self.pager.flush_page(page_num, PAGE_SIZE)?;
+        }
+
+        let num_rows_in_last_page = self.num_rows % ROWS_PER_PAGE;
+        if num_rows_in_last_page != 0 {
+            // last page is not full
+            self.pager.flush_page(self.num_rows / ROWS_PER_PAGE, num_rows_in_last_page * ROW_SIZE)?
+        }
+
+        self.pager.close_db()?;
+
+        Ok(())
+    }
+}
+
+impl Drop for Table {
+    fn drop(&mut self) {
+        self.close_db().expect("Unable to close db.")
     }
 }
