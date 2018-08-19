@@ -1,5 +1,4 @@
-use sqliters::statement;
-use std::iter;
+use sqliters::{statement, pager};
 
 const PAGE_SIZE: usize = 2046;
 const TABLE_MAX_PAGES: usize = 100;
@@ -7,17 +6,18 @@ const ROW_SIZE: usize = statement::INSERT_STATEMENT_SIZE;
 const ROWS_PER_PAGE: usize = PAGE_SIZE / ROW_SIZE;
 pub const TABLE_MAX_ROWS: usize = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 
+#[derive(Debug)]
 pub struct Table {
-    pages: Vec<Vec<u8>>,
+    pager: pager::Pager,
     num_rows: usize
 }
 
 impl Table {
-    pub fn new() -> Self {
-        Table {
-            pages: iter::repeat(vec![]).take(TABLE_MAX_PAGES).collect(),
+    pub fn new(db_filepath: &str) -> Result<Self, String> {
+        Ok(Table {
+            pager: pager::Pager::new(PAGE_SIZE, TABLE_MAX_PAGES, db_filepath)?,
             num_rows: 0
-        }
+        })
     }
 
     pub fn row_slot(&mut self, row_num: usize) -> Result<&mut [u8], String> {
@@ -27,11 +27,9 @@ impl Table {
 
         let page_num = row_num / ROWS_PER_PAGE;
         let row_offset = (row_num % ROWS_PER_PAGE) * ROW_SIZE;
-        if self.pages[page_num].len() == 0 {
-            self.pages[page_num] = vec![0; PAGE_SIZE];
-        }
+        let page = self.pager.get_page(page_num)?;
 
-        return Ok(&mut (self.pages[page_num][row_offset..row_offset + ROW_SIZE]))
+        return Ok(&mut page[row_offset..row_offset + ROW_SIZE])
     }
 
     pub fn add_row(&mut self, data: Vec<u8>) -> Result<(), String> {
@@ -52,7 +50,11 @@ impl Table {
         Ok(())
     }
 
-    pub fn num_rows(& self) -> usize {
+    pub fn num_rows(&self) -> usize {
         self.num_rows
+    }
+
+    pub fn delete_db(&mut self) -> Result<(), String> {
+        self.pager.delete_db_file()
     }
 }

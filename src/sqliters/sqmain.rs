@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use sqliters::{metacommands, sqlcommands, table};
 
 pub fn sq_main() {
-    let mut table = table::Table::new();
+    let mut table = table::Table::new("sqlitere.db").expect("Unable to open/create db file.");
 
     loop
     {
@@ -46,29 +46,31 @@ mod tests {
     #[test]
     fn test_1_insert_select()
     {
-        let mut table = table::Table::new();
+        let mut table = table::Table::new("test1.db").expect("Unable to create/open db file.");
         let commands = ["insert 1 ashishnegi abc@abc.com", "select"];
         for command in commands.iter() {
             process_command(&mut table, command).expect(format!("Failed at command '{}'", command).as_str());
         }
+        table.delete_db().expect("Unable to delete test db");
     }
 
     #[test]
     fn test_inserts_select()
     {
-        let mut table = table::Table::new();
+        let mut table = table::Table::new("test2.db").expect("Unable to create/open db file.");
         let mut commands: Vec<&str> = iter::repeat("insert 1 ashishnegi abc@abc.com").take(table::TABLE_MAX_ROWS).collect::<Vec<&str>>();
         commands.push("select");
 
         for command in commands.iter() {
             process_command(&mut table, command).expect(format!("Failed at command '{}'", command).as_str());
         }
+        table.delete_db().expect("Unable to delete test db");
     }
 
     #[test]
     fn test_inserts_max_select()
     {
-        let mut table = table::Table::new();
+        let mut table = table::Table::new("test3.db").expect("Unable to create/open db file.");
         let commands: Vec<&str> = iter::repeat("insert 1 ashishnegi abc@abc.com").take(table::TABLE_MAX_ROWS).collect::<Vec<&str>>();
 
         for command in commands.iter() {
@@ -77,5 +79,6 @@ mod tests {
 
         assert!(process_command(&mut table, "insert 2 abc abc@bcd.com").is_err(), "should not be able to insert more data");
         assert!(process_command(&mut table, "select").is_ok(), "select should always work");
+        table.delete_db().expect("Unable to delete test db");
     }
 }

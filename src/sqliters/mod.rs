@@ -3,3 +3,4 @@ mod sqlcommands;
 mod metacommands;
 mod statement;
 mod table;
+mod pager;
