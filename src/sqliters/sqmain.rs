@@ -32,7 +32,7 @@ fn process_command(table: &mut table::Table, user_command_input: &str) -> Result
     let user_command = user_command_input.trim();
 
     match user_command.chars().next() {
-        Some('.') => metacommands::process_meta_command(user_command),
+        Some('.') => metacommands::process_meta_command(table, user_command),
         Some(_) => sqlcommands::process_sql_command(table, user_command),
         None => panic!("Should not come here")
     }

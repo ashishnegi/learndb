@@ -14,9 +14,11 @@ pub struct Table {
 
 impl Table {
     pub fn new(db_filepath: &str) -> Result<Self, String> {
+        let pager = pager::Pager::new(PAGE_SIZE, TABLE_MAX_PAGES, db_filepath)?;
+        let num_pages = pager.num_pages() as usize;
         Ok(Table {
-            pager: pager::Pager::new(PAGE_SIZE, TABLE_MAX_PAGES, db_filepath)?,
-            num_rows: 0
+            pager: pager,
+            num_rows: num_pages * ROWS_PER_PAGE
         })
     }
 
@@ -56,5 +58,9 @@ impl Table {
 
     pub fn delete_db(&mut self) -> Result<(), String> {
         self.pager.delete_db_file()
+    }
+
+    pub fn close_db(&mut self) -> Result<(), String> {
+        self.pager.close_db()
     }
 }
