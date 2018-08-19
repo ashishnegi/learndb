@@ -1,4 +1,5 @@
 use std::mem;
+use std::fmt::{self, Write};
 
 #[derive(Debug)]
 pub enum Statement {
@@ -20,7 +21,7 @@ const EMAIL_SIZE: usize = 32;
 const ID_OFFSET: usize = 0;
 const USERNAME_OFFSET: usize = ID_OFFSET + ID_SIZE;
 const EMAIL_OFFSET: usize = USERNAME_OFFSET + USERNAME_SIZE;
-const EXPECTED_SIZE: usize = EMAIL_OFFSET + EMAIL_SIZE;
+pub const INSERT_STATEMENT_SIZE: usize = EMAIL_OFFSET + EMAIL_SIZE;
 
 pub fn prepare_statement(command: &str) -> Result<Statement, String>
 {
@@ -46,22 +47,24 @@ fn prepare_insert_statement(command_splits: Vec<&str>) -> Result<Statement, Stri
     }
 
     let user_id = command_splits[1].parse::<i32>()
-        .expect(format!("First argument '{}' should be id : integer", command_splits[1]).as_str());
+        .map_err(|_e| format!("First argument '{}' should be id : integer", command_splits[1]))?;
 
     let username = command_splits[2];
-    if username.as_bytes().len() > USERNAME_SIZE {
+    let username_bytes = username.as_bytes();
+    if username_bytes.len() > USERNAME_SIZE {
         return Err(format!("Username '{}' can be maximum of {} bytes", username, USERNAME_SIZE))
     }
 
     let email = command_splits[3];
-    if email.as_bytes().len() > EMAIL_SIZE {
+    let email_bytes = email.as_bytes();
+    if email_bytes.len() > EMAIL_SIZE {
         return Err(format!("Email '{}' can be maximum of {} bytes", email, EMAIL_SIZE))
     }
 
     let mut insert: InsertStatement = Default::default();
     insert.id = user_id;
-    insert.username.copy_from_slice(username.as_bytes());
-    insert.email.copy_from_slice(email.as_bytes());
+    insert.username[..username_bytes.len()].copy_from_slice(username_bytes);
+    insert.email[..email_bytes.len()].copy_from_slice(email_bytes);
 
     Ok(Statement::Insert(insert))
 }
@@ -83,8 +86,8 @@ pub fn serialize_row(insert: InsertStatement) -> Result<Vec<u8>, String>
     serialized.extend_from_slice(&id_bytes);
     serialized.extend_from_slice(&insert.username);
     serialized.extend_from_slice(&insert.email);
-    if serialized.len() != EXPECTED_SIZE {
-        return Err(format!("serialized size is not {}", EXPECTED_SIZE))
+    if serialized.len() != INSERT_STATEMENT_SIZE {
+        return Err(format!("serialized size is not {}", INSERT_STATEMENT_SIZE))
     }
 
     Ok(serialized)
@@ -93,18 +96,32 @@ pub fn serialize_row(insert: InsertStatement) -> Result<Vec<u8>, String>
 pub fn deserialize_row(deserialized: Vec<u8>) -> Result<InsertStatement, String>
 {
     use std::mem::transmute;
-    if deserialized.len() != EXPECTED_SIZE {
-        return Err(format!("deserialized size is not {}", EXPECTED_SIZE))
+    if deserialized.len() != INSERT_STATEMENT_SIZE {
+        return Err(format!("deserialized size is not {}", INSERT_STATEMENT_SIZE))
     }
 
     let mut insert: InsertStatement = Default::default();
 
     let mut id_bytes: [u8; ID_SIZE] = Default::default();
     id_bytes.copy_from_slice(&deserialized[0..ID_SIZE]);
-    insert.id = unsafe { transmute::<[u8;4], i32>(id_bytes) };
+    insert.id = unsafe { transmute::<[u8;4], i32>(id_bytes) }.to_be();
 
     insert.username.copy_from_slice(&deserialized[USERNAME_OFFSET..EMAIL_OFFSET]);
     insert.email.copy_from_slice(&deserialized[EMAIL_OFFSET..]);
 
     Ok(insert)
+}
+
+impl fmt::Display for InsertStatement {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_char('{')?;
+        fmt.write_str(" InsertStatement : Id: '")?;
+        fmt.write_str(self.id.to_string().as_str())?;
+        fmt.write_str("', username: '")?;
+        fmt.write_str(String::from_utf8(self.username.to_vec()).expect("Unable to get username from utf8").as_str())?;
+        fmt.write_str("', email: '")?;
+        fmt.write_str(String::from_utf8(self.email.to_vec()).expect("Unable to get email from utf8").as_str())?;
+        fmt.write_str("' }")?;
+        Ok(())
+    }
 }
