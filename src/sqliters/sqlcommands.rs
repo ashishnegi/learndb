@@ -1,4 +1,4 @@
-use sqliters::{statement, table};
+use sqliters::{statement, table, cursor};
 
 pub fn process_sql_command(table: &mut table::Table, command : &str) -> Result<(), String>
 {
@@ -28,14 +28,20 @@ fn execute_statement(table: &mut table::Table, statement: statement::Statement) 
 fn execute_insert_statement(table: &mut table::Table, statement: statement::InsertStatement) -> Result<(), String>
 {
     let deserialized = statement::serialize_row(statement)?;
-    table.add_row(deserialized)
+    let mut cursor = cursor::Cursor::table_end(table);
+    cursor.serialize_row_add(deserialized)
 }
 
 fn execute_select_statement(table: &mut table::Table) -> Result<(), String>
 {
-    for row in 0..table.num_rows() {
-        let serialized = table.row_slot(row)?;
-        println!("{}", statement::deserialize_row(serialized.to_vec())?)
+    let mut cursor = cursor::Cursor::table_start(table);
+
+    while !cursor.end_of_table() {
+        {
+            let serialized = cursor.cursor_value()?;
+            println!("{}", statement::deserialize_row(serialized.to_vec())?);
+        }
+        cursor.advance_cursor();
     }
 
     Ok(())
