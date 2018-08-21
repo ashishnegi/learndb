@@ -1,5 +1,5 @@
-use std::mem;
 use std::fmt::{self, Write};
+use sqliters::consts;
 
 #[derive(Debug)]
 pub enum Statement {
@@ -10,18 +10,9 @@ pub enum Statement {
 #[derive(Debug, Default)]
 pub struct InsertStatement {
     id: i32,
-    username: [u8; USERNAME_SIZE],
-    email: [u8; EMAIL_SIZE]
+    username: [u8; consts::USERNAME_SIZE],
+    email: [u8; consts::EMAIL_SIZE]
 }
-
-const ID_SIZE: usize = mem::size_of::<i32>();
-const USERNAME_SIZE: usize = 32;
-const EMAIL_SIZE: usize = 32;
-
-const ID_OFFSET: usize = 0;
-const USERNAME_OFFSET: usize = ID_OFFSET + ID_SIZE;
-const EMAIL_OFFSET: usize = USERNAME_OFFSET + USERNAME_SIZE;
-pub const INSERT_STATEMENT_SIZE: usize = EMAIL_OFFSET + EMAIL_SIZE;
 
 pub fn prepare_statement(command: &str) -> Result<Statement, String>
 {
@@ -51,14 +42,14 @@ fn prepare_insert_statement(command_splits: Vec<&str>) -> Result<Statement, Stri
 
     let username = command_splits[2];
     let username_bytes = username.as_bytes();
-    if username_bytes.len() > USERNAME_SIZE {
-        return Err(format!("Username '{}' can be maximum of {} bytes", username, USERNAME_SIZE))
+    if username_bytes.len() > consts::USERNAME_SIZE {
+        return Err(format!("Username '{}' can be maximum of {} bytes", username, consts::USERNAME_SIZE))
     }
 
     let email = command_splits[3];
     let email_bytes = email.as_bytes();
-    if email_bytes.len() > EMAIL_SIZE {
-        return Err(format!("Email '{}' can be maximum of {} bytes", email, EMAIL_SIZE))
+    if email_bytes.len() > consts::EMAIL_SIZE {
+        return Err(format!("Email '{}' can be maximum of {} bytes", email, consts::EMAIL_SIZE))
     }
 
     let mut insert: InsertStatement = Default::default();
@@ -82,12 +73,12 @@ pub fn serialize_row(insert: InsertStatement) -> Result<Vec<u8>, String>
     use std::mem::transmute;
 
     let mut serialized = Vec::<u8>::new();
-    let id_bytes: [u8; ID_SIZE] = unsafe { transmute(insert.id.to_be()) };
+    let id_bytes: [u8; consts::ID_SIZE] = unsafe { transmute(insert.id.to_be()) };
     serialized.extend_from_slice(&id_bytes);
     serialized.extend_from_slice(&insert.username);
     serialized.extend_from_slice(&insert.email);
-    if serialized.len() != INSERT_STATEMENT_SIZE {
-        return Err(format!("serialized size is not {}", INSERT_STATEMENT_SIZE))
+    if serialized.len() != consts::INSERT_STATEMENT_SIZE {
+        return Err(format!("serialized size is not {}", consts::INSERT_STATEMENT_SIZE))
     }
 
     Ok(serialized)
@@ -96,18 +87,18 @@ pub fn serialize_row(insert: InsertStatement) -> Result<Vec<u8>, String>
 pub fn deserialize_row(deserialized: Vec<u8>) -> Result<InsertStatement, String>
 {
     use std::mem::transmute;
-    if deserialized.len() != INSERT_STATEMENT_SIZE {
-        return Err(format!("deserialized size is not {}", INSERT_STATEMENT_SIZE))
+    if deserialized.len() != consts::INSERT_STATEMENT_SIZE {
+        return Err(format!("deserialized size is not {}", consts::INSERT_STATEMENT_SIZE))
     }
 
     let mut insert: InsertStatement = Default::default();
 
-    let mut id_bytes: [u8; ID_SIZE] = Default::default();
-    id_bytes.copy_from_slice(&deserialized[0..ID_SIZE]);
+    let mut id_bytes: [u8; consts::ID_SIZE] = Default::default();
+    id_bytes.copy_from_slice(&deserialized[0..consts::ID_SIZE]);
     insert.id = unsafe { transmute::<[u8;4], i32>(id_bytes) }.to_be();
 
-    insert.username.copy_from_slice(&deserialized[USERNAME_OFFSET..EMAIL_OFFSET]);
-    insert.email.copy_from_slice(&deserialized[EMAIL_OFFSET..]);
+    insert.username.copy_from_slice(&deserialized[consts::USERNAME_OFFSET..consts::EMAIL_OFFSET]);
+    insert.email.copy_from_slice(&deserialized[consts::EMAIL_OFFSET..]);
 
     Ok(insert)
 }

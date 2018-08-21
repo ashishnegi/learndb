@@ -1,68 +1,31 @@
-use sqliters::{statement, pager};
-
-const PAGE_SIZE: usize = 2046;
-const TABLE_MAX_PAGES: usize = 100;
-const ROW_SIZE: usize = statement::INSERT_STATEMENT_SIZE;
-const ROWS_PER_PAGE: usize = PAGE_SIZE / ROW_SIZE;
-pub const TABLE_MAX_ROWS: usize = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+use sqliters::{page, pager, consts};
 
 #[derive(Debug)]
 pub struct Table {
     pager: pager::Pager,
-    num_rows: usize
+    root_page_num: u64,
+    num_rows: u64
 }
 
 impl Table {
     pub fn new(db_filepath: &str) -> Result<Self, String> {
-        let pager = pager::Pager::new(PAGE_SIZE, TABLE_MAX_PAGES, db_filepath)?;
-        let last_page_size = pager.last_page_size();
-        let last_num_rows = last_page_size / (ROW_SIZE as u64);
-
-        if last_page_size % (ROW_SIZE as u64) != 0 {
-            // data corruption. // we can even truncate rest of file.
-            return Err(format!("Half rows found in file {} : last_page_size {} : page_size {}",
-                db_filepath, last_page_size, PAGE_SIZE))
+        let mut pager = pager::Pager::new(consts::PAGE_SIZE, consts::TABLE_MAX_PAGES, db_filepath)?;
+        let num_pages = pager.num_db_pages();
+        let mut num_rows = 0;
+        if num_pages != 0 {
+            let page0 = pager.get_page(0)?;
+            num_rows = page::get_num_cells(page0);
         }
 
-        let num_rows = pager.num_db_full_pages() * (ROWS_PER_PAGE as u64) + last_num_rows;
         Ok(Table {
             pager: pager,
-            num_rows: num_rows as usize
+            root_page_num: 0,
+            num_rows: num_rows
         })
     }
 
-    pub fn row_slot(&mut self, row_num: usize) -> Result<&mut [u8], String> {
-        if row_num >= TABLE_MAX_ROWS {
-            return Err(format!("{} row is out of space allocated to table {}", row_num, TABLE_MAX_ROWS))
-        }
-
-        let page_num = row_num / ROWS_PER_PAGE;
-        let row_offset = (row_num % ROWS_PER_PAGE) * ROW_SIZE;
-        let page = self.pager.get_page(page_num)?;
-
-        return Ok(&mut page[row_offset..row_offset + ROW_SIZE])
-    }
-
-    pub fn add_row(&mut self, data: Vec<u8>) -> Result<(), String> {
-        if data.len() != ROW_SIZE {
-            return Err(format!("Can't store a data of size {} != {}", data.len(), ROW_SIZE))
-        }
-
-        {
-            let num_rows = self.num_rows;
-            let next_slot = self.row_slot(num_rows)?;
-            for pos in 0..data.len() {
-                next_slot[pos] = data[pos];
-            }
-        }
-
-        self.num_rows += 1;
-
-        Ok(())
-    }
-
-    pub fn num_rows(&self) -> usize {
-        self.num_rows
+    pub fn get_page(&mut self, page_num: usize) -> Result<&mut Vec<u8>, String> {
+        self.pager.get_page(page_num)
     }
 
     pub fn delete_db(&mut self) -> Result<(), String> {
@@ -70,19 +33,15 @@ impl Table {
     }
 
     pub fn close_db(&mut self) -> Result<(), String> {
-        for page_num in 0..(self.num_rows / ROWS_PER_PAGE) {
-            self.pager.flush_page(page_num, PAGE_SIZE)?;
+        for page_num in 0..self.num_pages() {
+            self.pager.flush_page(page_num as usize)?;
         }
 
-        let num_rows_in_last_page = self.num_rows % ROWS_PER_PAGE;
-        if num_rows_in_last_page != 0 {
-            // last page is not full
-            self.pager.flush_page(self.num_rows / ROWS_PER_PAGE, num_rows_in_last_page * ROW_SIZE)?
-        }
+        self.pager.close_db()
+    }
 
-        self.pager.close_db()?;
-
-        Ok(())
+    pub fn num_pages(&mut self) -> u64 {
+        self.pager.num_pages()
     }
 }
 

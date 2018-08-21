@@ -9,21 +9,28 @@ pub struct Pager {
     db_filepath: String,
     filesize: u64,
     page_size: usize,
-    max_pages: usize
+    max_pages: usize,
+    num_pages: u64
 }
 
 impl Pager {
     pub fn new(page_size: usize, max_pages: usize, db_filepath: &str) -> Result<Self, String> {
         // read the db file and initialize the page from it.
         let file = open_or_create_db_file(db_filepath)?;
-        Ok(Pager {
+        let filesize = get_filesize(db_filepath)?;
+        let mut pager = Pager {
             pages: iter::repeat(vec![]).take(max_pages).collect(),
             db_file: file,
             db_filepath: String::from(db_filepath),
-            filesize: get_filesize(db_filepath)?,
+            filesize: filesize,
             page_size: page_size,
-            max_pages: max_pages
-        })
+            max_pages: max_pages,
+            num_pages: 0
+        };
+
+        pager.num_pages = pager.num_db_pages();
+
+        Ok(pager)
     }
 
     pub fn get_page(&mut self, page_num: usize) -> Result<&mut Vec<u8>, String> {
@@ -33,9 +40,12 @@ impl Pager {
 
         if self.pages[page_num].len() == 0 {
             self.pages[page_num] = vec![0; self.page_size];
+            println!("Num db pages: {}", self.num_db_pages());
             if self.num_db_pages() > page_num as u64 {
                 // page is present in db file
                 self.read_page_from_file(page_num)?;
+            } else {
+                self.num_pages += 1; // one more page added.
             }
         }
 
@@ -43,6 +53,7 @@ impl Pager {
     }
 
     pub fn read_page_from_file(&mut self, page_num: usize) -> Result<(), String> {
+        // pages are written in order 0,1,2..N
         let page_buffer = &mut self.pages[page_num];
         let page_offset = (page_num * self.page_size) as u64;
         let offset = self.db_file
@@ -58,7 +69,7 @@ impl Pager {
             .map_err(|e| format!("Error in read to offset {} : error {}", page_offset, e))?;
 
         if bytes_read != page_buffer.len() {
-            println!("Could not read full page_buffer : bytes_read {} : page_buffer_len {}", bytes_read, page_buffer.len());
+            format!("Could not read full page_buffer : bytes_read {} : page_buffer_len {}", bytes_read, page_buffer.len());
         }
 
         Ok(())
@@ -68,7 +79,7 @@ impl Pager {
         fs::remove_file(self.db_filepath.as_str()).map_err(|e| format!("Unable to delete db_file : error {}", e.to_string()))
     }
 
-    pub fn flush_page(&mut self, page_pos: usize, page_size: usize) -> Result<(), String> {
+    pub fn flush_page(&mut self, page_pos: usize) -> Result<(), String> {
         if page_pos >= self.pages.len() {
             return Err(format!("Page pos {} is greater than total number of pages.", self.pages.len()))
         }
@@ -76,33 +87,25 @@ impl Pager {
         let page = &self.pages[page_pos];
 
         if page.len() != 0 { // never bought in memory and never written ; so flush is no-op
-            if page.len() < page_size {
-                return Err(format!("Page size {} is smaller than the size to flush {}", page.len(), page_size))
+            if page.len() < self.page_size {
+                return Err(format!("Unexpected : Page size {} is smaller than the size to flush {}", page.len(), self.page_size))
             }
             self.db_file.seek(io::SeekFrom::Start((page_pos * self.page_size) as u64))
                     .map_err(|e| format!("Failed to seek in db file {}", e))?;
 
-            self.db_file.write(&page[..page_size])
+            self.db_file.write(&page[..self.page_size])
                 .map_err(|e| format!("Failed to write file {}", e))?;
         }
 
         Ok(())
     }
 
-    fn num_db_pages(&self) -> u64 {
-        let full_pages = self.num_db_full_pages();
-        if self.last_page_size() != 0 {
-            return full_pages + 1;
-        }
-        return full_pages;
-    }
-
-    pub fn num_db_full_pages(&self) -> u64 {
+    pub fn num_db_pages(&self) -> u64 {
         return self.filesize / (self.page_size as u64);
     }
 
-    pub fn last_page_size(&self) -> u64 {
-        return self.filesize % (self.page_size as u64);
+    pub fn num_pages(&self) -> u64 {
+        return self.num_pages;
     }
 
     pub fn close_db(&mut self) -> Result<(), String> {

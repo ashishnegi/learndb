@@ -58,7 +58,7 @@ mod tests {
     fn test_inserts_select()
     {
         let mut table = table::Table::new("test2.db").expect("Unable to create/open db file.");
-        let mut commands: Vec<&str> = iter::repeat("insert 1 ashishnegi abc@abc.com").take(table::TABLE_MAX_ROWS).collect::<Vec<&str>>();
+        let mut commands: Vec<&str> =  iter::repeat("insert 1 ashishnegi abc@abc.com").take(table::TABLE_MAX_ROWS).collect::<Vec<&str>>();
         commands.push("select");
 
         for command in commands.iter() {
