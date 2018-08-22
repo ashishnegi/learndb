@@ -25,7 +25,7 @@ pub const NUM_ENTRIES_OFFSET: usize = IS_ROOT_OFFSET + IS_ROOT_SIZE;
 pub const PAGE_HEADER_SIZE: usize = NUM_ENTRIES_OFFSET + NUM_ENTRIES_SIZE;
 
 // Leaf node : Offsets in body
-pub const KEY_SIZE: usize = mem::size_of::<u64>();
+pub const KEY_SIZE: usize = ID_SIZE;
 pub const KEY_OFFSET: usize = 0;
 pub const VALUE_SIZE: usize = ROW_SIZE;
 pub const VALUE_OFFSET: usize = KEY_OFFSET + KEY_SIZE;
@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn test_consts() {
-        assert!(TABLE_MAX_ROWS == 26, "TABLE_MAX_ROWS {}", TABLE_MAX_ROWS);
-        assert!(CELLS_PER_PAGE == 26, "CELLS_PER_PAGE {}", CELLS_PER_PAGE);
+        assert!(TABLE_MAX_ROWS == 28, "TABLE_MAX_ROWS {}", TABLE_MAX_ROWS);
+        assert!(CELLS_PER_PAGE == 28, "CELLS_PER_PAGE {}", CELLS_PER_PAGE);
     }
 }

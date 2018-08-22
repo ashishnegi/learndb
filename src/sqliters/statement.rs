@@ -116,3 +116,9 @@ impl fmt::Display for InsertStatement {
         Ok(())
     }
 }
+
+impl InsertStatement {
+    pub fn id(&self) -> i32 {
+        self.id
+    }
+}
