@@ -1,6 +1,7 @@
 use std::{iter, fs};
 use std::io::{self, Seek, Read, Write};
 use std::fs::OpenOptions;
+use sqliters::page;
 
 #[derive(Debug)]
 pub struct Pager {
@@ -39,7 +40,7 @@ impl Pager {
         }
 
         if self.pages[page_num].len() == 0 {
-            self.pages[page_num] = vec![0; self.page_size];
+            self.pages[page_num] = page::new_leaf_node(true, self.page_size);
             println!("Num db pages: {}", self.num_db_pages());
             if self.num_db_pages() > page_num as u64 {
                 // page is present in db file
