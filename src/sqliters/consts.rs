@@ -30,6 +30,17 @@ pub const KEY_OFFSET: usize = 0;
 pub const VALUE_SIZE: usize = ROW_SIZE;
 pub const VALUE_OFFSET: usize = KEY_OFFSET + KEY_SIZE;
 pub const CELL_SIZE: usize = VALUE_OFFSET + VALUE_SIZE;
-pub const CELL_PER_PAGE: usize = (PAGE_SIZE - PAGE_HEADER_SIZE) / CELL_SIZE;
+pub const CELLS_PER_PAGE: usize = (PAGE_SIZE - PAGE_HEADER_SIZE) / CELL_SIZE;
 
-pub const TABLE_MAX_ROWS: usize = CELL_PER_PAGE * TABLE_MAX_PAGES;
+pub const TABLE_MAX_ROWS: usize = CELLS_PER_PAGE * TABLE_MAX_PAGES;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_consts() {
+        assert!(TABLE_MAX_ROWS == 26, "TABLE_MAX_ROWS {}", TABLE_MAX_ROWS);
+        assert!(CELLS_PER_PAGE == 26, "CELLS_PER_PAGE {}", CELLS_PER_PAGE);
+    }
+}

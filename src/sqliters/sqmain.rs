@@ -16,7 +16,7 @@ pub fn sq_main() {
         let result = process_command(&mut table, user_command_input.as_str());
 
         match result {
-            Err(msg) => println!("{}", msg),
+            Err(msg) => println!("Error: {}", msg),
             _ => println!("Executed.")
         }
     }
@@ -41,6 +41,7 @@ fn process_command(table: &mut table::Table, user_command_input: &str) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqliters::consts;
     use std::iter;
 
     #[test]
@@ -58,7 +59,7 @@ mod tests {
     fn test_inserts_select()
     {
         let mut table = table::Table::new("test2.db").expect("Unable to create/open db file.");
-        let mut commands: Vec<&str> =  iter::repeat("insert 1 ashishnegi abc@abc.com").take(table::TABLE_MAX_ROWS).collect::<Vec<&str>>();
+        let mut commands: Vec<&str> =  iter::repeat("insert 1 ashishnegi abc@abc.com").take(consts::TABLE_MAX_ROWS).collect::<Vec<&str>>();
         commands.push("select");
 
         for command in commands.iter() {
@@ -71,10 +72,10 @@ mod tests {
     fn test_inserts_max_select()
     {
         let mut table = table::Table::new("test3.db").expect("Unable to create/open db file.");
-        let commands: Vec<&str> = iter::repeat("insert 1 ashishnegi abc@abc.com").take(table::TABLE_MAX_ROWS).collect::<Vec<&str>>();
+        let commands: Vec<&str> = iter::repeat("insert 1 ashishnegi abc@abc.com").take(consts::TABLE_MAX_ROWS).collect::<Vec<&str>>();
 
         for command in commands.iter() {
-            process_command(&mut table, command).expect(format!("Failed at command '{}'", command).as_str());
+            process_command(&mut table, command).expect(format!("Failed at command '{}', table {:?}", command, table).as_str());
         }
 
         assert!(process_command(&mut table, "insert 2 abc abc@bcd.com").is_err(), "should not be able to insert more data");

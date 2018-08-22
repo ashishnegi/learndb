@@ -41,7 +41,7 @@ fn execute_select_statement(table: &mut table::Table) -> Result<(), String>
             let serialized = cursor.cursor_value()?;
             println!("row: {}", statement::deserialize_row(serialized.to_vec())?);
         }
-        cursor.advance_cursor();
+        cursor.advance_cursor()?
     }
 
     Ok(())
