@@ -68,7 +68,7 @@ fn prepare_select_statement(command_splits: Vec<&str>) -> Result<Statement, Stri
     return Ok(Statement::Select)
 }
 
-pub fn serialize_row(insert: InsertStatement) -> Result<Vec<u8>, String>
+pub fn serialize_row(insert: &InsertStatement) -> Result<Vec<u8>, String>
 {
     use std::mem::transmute;
 

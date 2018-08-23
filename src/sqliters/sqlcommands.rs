@@ -27,8 +27,8 @@ fn execute_statement(context: &mut context::Context, table: &mut table::Table, s
 
 fn execute_insert_statement(table: &mut table::Table, statement: statement::InsertStatement) -> Result<(), String>
 {
-    let deserialized = statement::serialize_row(statement)?;
-    let mut cursor = cursor::Cursor::table_end(table);
+    let deserialized = statement::serialize_row(&statement)?;
+    let mut cursor = cursor::Cursor::table_find(table, statement.id())?;
     cursor.serialize_row_add(deserialized)
 }
 

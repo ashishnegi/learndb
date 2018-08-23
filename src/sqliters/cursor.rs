@@ -19,24 +19,24 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    pub fn table_end(table: &'a mut table::Table) -> Self {
+    pub fn table_find(table: &'a mut table::Table, key: i32) -> Result<Self, String> {
         let num_pages = table.num_pages();
         let mut page_num = 0;
-        let mut num_cells = 0;
+        let mut cell_num = 0;
         if num_pages != 0 {
             let page = table.get_page(0)
                 .expect("cursor : Failed to get page 0 when confirmed to have page 0"); // 0 is root
-            num_cells = page::get_num_cells(page);
+            cell_num = page::find_new_key_pos(page, key)?;
 
             page_num = num_pages - 1;
         }
 
-        Cursor {
+        Ok(Cursor {
             table: table,
             page_num: page_num, // page_num is index.
-            cell_num: num_cells,
+            cell_num: cell_num,
             end_of_table: true
-        }
+        })
     }
 
     pub fn cursor_value(&mut self) -> Result<&mut[u8], String> {
