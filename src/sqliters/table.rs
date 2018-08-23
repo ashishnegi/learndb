@@ -4,23 +4,15 @@ use sqliters::{page, pager, consts};
 pub struct Table {
     pager: pager::Pager,
     root_page_num: u64,
-    num_rows: u64
 }
 
 impl Table {
     pub fn new(db_filepath: &str) -> Result<Self, String> {
-        let mut pager = pager::Pager::new(consts::PAGE_SIZE, consts::TABLE_MAX_PAGES, db_filepath)?;
-        let num_pages = pager.num_db_pages();
-        let mut num_rows = 0;
-        if num_pages != 0 {
-            let page0 = pager.get_page(0)?;
-            num_rows = page::get_num_cells(page0);
-        }
+        let pager = pager::Pager::new(consts::PAGE_SIZE, consts::TABLE_MAX_PAGES, db_filepath)?;
 
         Ok(Table {
             pager: pager,
             root_page_num: 0,
-            num_rows: num_rows
         })
     }
 

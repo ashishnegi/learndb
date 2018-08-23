@@ -43,13 +43,13 @@ fn process_command(context: &mut context::Context, table: &mut table::Table, use
 mod tests {
     use super::*;
     use sqliters::consts;
-    use std::{iter, fs};
+    use std::{iter, fs, path::Path};
 
     #[test]
     fn test_1_insert_select()
     {
         let db_filename = "test1.db";
-        fs::remove_file(db_filename);
+        test_setup(db_filename);
 
         let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
         let commands = ["insert 1 ashishnegi abc@abc.com", "select"];
@@ -65,7 +65,7 @@ mod tests {
     fn test_inserts_select()
     {
         let db_filename = "test2.db";
-        fs::remove_file(db_filename);
+        test_setup(db_filename);
 
         let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
         let mut context = context::Context::new(Box::new(context::AssertSelectOutFn::new(1)));
@@ -84,7 +84,7 @@ mod tests {
     fn test_inserts_max_select()
     {
         let db_filename = "test3.db";
-        fs::remove_file(db_filename);
+        test_setup(db_filename);
 
         let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
         let commands: Vec<&str> = iter::repeat("insert 1 ashishnegi abc@abc.com").take(consts::TABLE_MAX_ROWS).collect::<Vec<&str>>();
@@ -96,5 +96,32 @@ mod tests {
         assert!(process_command(&mut context, &mut table, "insert 2 abc abc@bcd.com").is_err(), "should not be able to insert more data");
         assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
         table.delete_db().expect("Unable to delete test db");
+    }
+
+    #[test]
+    fn test_random_inserts_sorted_select()
+    {
+        let db_filename = "test4.db";
+        test_setup(db_filename);
+
+        let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
+        let commands: Vec<String> =  (1 .. consts::TABLE_MAX_ROWS)
+            .rev()
+            .map(|s| format!("insert {} ashishnegi abc@abc.com", s))
+            .collect::<Vec<String>>();
+        let mut context = context::Context::new(Box::new(context::AssertSelectOutFn::new(1)));
+
+        for command in commands.iter() {
+            process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}', table {:?}", command, table).as_str());
+        }
+
+        assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
+        table.delete_db().expect("Unable to delete test db");
+    }
+
+    fn test_setup(db_filename: &str) {
+        if Path::new(db_filename).exists() {
+            fs::remove_file(db_filename).expect("Should be able to delete db file before starting test");
+        }
     }
 }
