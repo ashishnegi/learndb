@@ -26,7 +26,7 @@ impl<'a> Cursor<'a> {
         if num_pages != 0 {
             let page = table.get_page(0)
                 .expect("cursor : Failed to get page 0 when confirmed to have page 0"); // 0 is root
-            cell_num = page::find_new_key_pos(page, key)?;
+            cell_num = page::find_key_pos(page, key);
 
             page_num = num_pages - 1;
         }
@@ -94,9 +94,12 @@ impl<'a> Cursor<'a> {
         }
 
         let page = self.table.get_page(self.page_num as usize)?;
-        let key_pos = page::find_new_key_pos(page, page::deserialize_key(&data[0..consts::KEY_SIZE]))?;
-        println!("cell_num {}", self.cell_num);
-        page::add_data(page, key_pos, &data)?;
+        let key = page::deserialize_key(&data[0..consts::KEY_SIZE]);
+        if key == page::get_key_at(page, self.cell_num) {
+            return Err(format!("Can not insert duplicate keys {}; Already present at pos: {}", key, self.cell_num))
+        }
+
+        page::add_data(page, self.cell_num, &data)?;
         page::increment_cell_count(page);
 
         Ok(())

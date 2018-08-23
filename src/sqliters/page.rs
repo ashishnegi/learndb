@@ -121,6 +121,19 @@ pub fn new_leaf_node(is_root: bool, page_size: usize) -> Vec<u8> {
 }
 
 pub fn find_new_key_pos(page: &Vec<u8>, key: i32) -> Result<u64, String> {
+    find_key(page, key).map_err(|e| e.1)
+}
+
+pub fn find_key_pos(page: &Vec<u8>, key: i32) -> u64 {
+    let pos = find_key(page, key);
+    if pos.is_ok() {
+        return pos.unwrap()
+    } else {
+        pos.unwrap_err().0
+    }
+}
+
+fn find_key(page: &Vec<u8>, key: i32) -> Result<u64, (u64, String)> {
     let num_keys = get_num_cells(page);
     if num_keys == 0 {
         return Ok(0)
@@ -136,7 +149,7 @@ pub fn find_new_key_pos(page: &Vec<u8>, key: i32) -> Result<u64, String> {
         println!("Binary search: key {}, mid_key {}", key, mid_key);
 
         if key == mid_key {
-            return Err(format!("Duplicate key {} present at index {} in page", key, key_pos))
+            return Err((key_pos, format!("Duplicate key {} present at index {} in page", key, key_pos)))
         } else if key > mid_key {
             key_start_pos = key_pos + 1;
         } else if key_pos == 0 {
