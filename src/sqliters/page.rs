@@ -50,6 +50,8 @@ pub fn increment_cell_count(page: &mut Vec<u8>) {
 pub fn print_leaf_node(page: &Vec<u8>) {
     if !is_leaf_node(page) {
         return println!("Not leaf node");
+    } else {
+        print!("leaf_node, ")
     }
 
     let is_root = is_root_node(page);
@@ -82,6 +84,12 @@ pub fn get_cell_data(page: &Vec<u8>, cell_num: u64) -> &[u8] {
 pub fn new_leaf_node(is_root: bool, page_size: usize) -> Vec<u8> {
     let mut bytes = vec![0; page_size];
     let node_type_bytes: [u8; consts::IS_ROOT_OFFSET] = unsafe { transmute(consts::LEAF_NODE_TYPE.to_be()) };
-    bytes[0..consts::IS_ROOT_OFFSET].copy_from_slice(&node_type_bytes);
+    bytes[consts::PAGE_TYPE_OFFSET .. consts::IS_ROOT_OFFSET].copy_from_slice(&node_type_bytes);
+
+    let is_root_value = if is_root { consts::IS_ROOT_TYPE } else { consts::NON_ROOT_TYPE };
+    let is_root_bytes: [u8; consts::IS_ROOT_SIZE] = unsafe { transmute(is_root_value.to_be()) };
+    bytes[consts::IS_ROOT_OFFSET .. consts::NUM_ENTRIES_OFFSET].copy_from_slice(&is_root_bytes);
+
+    // rest should be all Zeroes .. num_cells : key : values
     bytes
 }

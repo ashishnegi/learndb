@@ -36,7 +36,8 @@ pub const TABLE_MAX_ROWS: usize = CELLS_PER_PAGE * TABLE_MAX_PAGES;
 
 pub const LEAF_NODE_TYPE: u8 = 1;
 pub const NONLEAF_NODE_TYPE: u8 = LEAF_NODE_TYPE + 1;
-pub const IS_ROOT_TYPE: u8 = 1993;
+pub const IS_ROOT_TYPE: u8 = 67;
+pub const NON_ROOT_TYPE: u8 = IS_ROOT_TYPE - 1;
 
 #[cfg(test)]
 mod tests {
