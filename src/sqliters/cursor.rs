@@ -88,14 +88,15 @@ impl<'a> Cursor<'a> {
         return Ok(&mut page[row_offset .. row_offset + consts::CELL_SIZE])
     }
 
-    pub fn add_row(&mut self, data: Vec<u8>) -> Result<(), String> {
+    fn add_row(&mut self, data: Vec<u8>) -> Result<(), String> {
         if data.len() != consts::ROW_SIZE {
             return Err(format!("Can't store a data of size {} != {}", data.len(), consts::ROW_SIZE))
         }
 
         let page = self.table.get_page(self.page_num as usize)?;
+        let key_pos = page::find_new_key_pos(page, page::deserialize_key(&data[0..consts::KEY_SIZE]))?;
         println!("cell_num {}", self.cell_num);
-        page::add_data(page, self.cell_num, &data);
+        page::add_data(page, key_pos, &data)?;
         page::increment_cell_count(page);
 
         Ok(())

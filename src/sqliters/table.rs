@@ -1,4 +1,4 @@
-use sqliters::{page, pager, consts};
+use sqliters::{pager, consts};
 
 #[derive(Debug)]
 pub struct Table {

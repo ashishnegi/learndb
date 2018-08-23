@@ -81,13 +81,15 @@ mod tests {
     }
 
     #[test]
-    fn test_inserts_max_select()
+    fn test_max_inserts_select()
     {
         let db_filename = "test3.db";
         test_setup(db_filename);
 
         let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
-        let commands: Vec<&str> = iter::repeat("insert 1 ashishnegi abc@abc.com").take(consts::TABLE_MAX_ROWS).collect::<Vec<&str>>();
+        let commands: Vec<String> = (1 .. consts::TABLE_MAX_ROWS)
+            .map(|s| format!("insert {} ashishnegi abc@abc.com", s))
+            .collect::<Vec<String>>();
         let mut context = context::Context::new(Box::new(context::ConsoleOutFn::new()));
 
         for command in commands.iter() {
