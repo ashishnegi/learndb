@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate downcast_rs;
+
 // mod fileapi;
 // mod bplustree;
 // mod list;

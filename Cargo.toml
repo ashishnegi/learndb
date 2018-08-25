@@ -5,3 +5,4 @@ authors = ["Ashish Negi <asnegi@microsoft.com>"]
 
 [dependencies]
 rand = "0.3.18" # Or a newer version
+downcast-rs = "1.0.3"

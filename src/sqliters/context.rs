@@ -1,12 +1,14 @@
 use sqliters::statement;
+use downcast_rs::Downcast;
 
 pub struct Context {
     select_outfn: Box<OutFn>
 }
 
-pub trait OutFn {
+pub trait OutFn: Downcast {
     fn outfn(&mut self, &statement::InsertStatement);
 }
+impl_downcast!(OutFn);
 
 pub struct ConsoleOutFn {}
 
@@ -30,6 +32,10 @@ impl AssertSelectOutFn {
     pub fn new(count: i32) -> Self {
         AssertSelectOutFn{count: count}
     }
+
+    pub fn count(&self) -> i32 {
+        self.count
+    }
 }
 
 impl OutFn for AssertSelectOutFn {
@@ -48,5 +54,9 @@ impl Context {
 
     pub fn select_out(&mut self, insert: &statement::InsertStatement) {
         self.select_outfn.outfn(insert)
+    }
+
+    pub fn get_out(&self) -> &Box<OutFn> {
+        &self.select_outfn
     }
 }
