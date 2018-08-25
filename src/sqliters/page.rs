@@ -1,7 +1,108 @@
 use sqliters::consts;
 use std::mem::transmute;
 
-pub fn is_leaf_node(page: &Vec<u8>) -> bool {
+#[derive(Debug, Clone)]
+pub enum NodeType {
+    Leaf,
+    Internal
+}
+
+#[derive(Debug, Clone)]
+pub struct Page {
+    is_root: bool,
+    node_type: NodeType,
+    data: Vec<u8>,
+    num_cells: u64
+}
+
+impl Page {
+    pub fn new(data: Vec<u8>) -> Self {
+        let num_cells = get_num_cells(&data);
+        Page {
+            is_root: is_root_node(&data),
+            node_type: if is_leaf_node(&data) { NodeType::Leaf } else { NodeType::Internal },
+            data: data,
+            num_cells: num_cells
+        }
+    }
+
+    pub fn empty() -> Self {
+        Page {
+            is_root: false,
+            node_type: NodeType::Leaf,
+            data: vec![],
+            num_cells: 0
+        }
+    }
+
+    pub fn new_leaf(is_root: bool, page_size: usize) -> Self {
+        Page {
+            is_root: is_root,
+            node_type: NodeType::Leaf,
+            data: new_leaf_node(is_root, page_size),
+            num_cells: 0
+        }
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.is_root
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        match self.node_type {
+            NodeType::Leaf => true,
+            _ => false
+        }
+    }
+
+    pub fn num_cells(&self) -> u64 {
+        self.num_cells
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.len() == 0
+    }
+
+    pub fn find_key_pos(&self, key: i32) -> u64 {
+        find_key_pos(&self.data, self.num_cells, key)
+    }
+
+    pub fn get_data(&mut self) -> &mut Vec<u8> {
+        &mut self.data
+    }
+
+    pub fn get_key_at(&self, key_pos: u64) -> i32 {
+        get_key_at(&self.data, key_pos)
+    }
+
+    pub fn increment_cell_count(&mut self) {
+        self.num_cells += 1
+    }
+
+    pub fn add_data(&mut self, cell_pos: u64, data: &Vec<u8>) -> Result<(), String> {
+        add_data(&mut self.data, self.num_cells, cell_pos, data)
+    }
+
+    pub fn print(&self) {
+        if self.is_leaf() {
+            print_leaf_node(&self.data)
+        } else {
+            println!("Don't know how to print non leaf node.")
+        }
+    }
+
+    pub fn page_size(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn flush(&mut self) {
+        // set root
+        // never set type
+        set_cell_count(&mut self.data, self.num_cells as usize);
+    }
+}
+
+fn is_leaf_node(page: &Vec<u8>) -> bool {
     let mut node_type_bytes: [u8; consts::PAGE_TYPE_SIZE] = Default::default();
     node_type_bytes.copy_from_slice(&page[consts::PAGE_TYPE_OFFSET..consts::IS_ROOT_OFFSET]);
     let node_type = unsafe { transmute::<[u8;consts::PAGE_TYPE_SIZE], u8>(node_type_bytes) }.to_be();
@@ -16,14 +117,13 @@ fn get_cell_count_ref_mut(page: &mut Vec<u8>) -> &mut [u8] {
     &mut page[consts::NUM_ENTRIES_OFFSET..consts::PAGE_HEADER_SIZE]
 }
 
-pub fn get_num_cells(page: &Vec<u8>) -> u64 {
+fn get_num_cells(page: &Vec<u8>) -> u64 {
     let mut id_bytes: [u8; consts::NUM_ENTRIES_SIZE] = Default::default();
     id_bytes.copy_from_slice(get_cell_count_ref(page));
     unsafe { transmute::<[u8;consts::NUM_ENTRIES_SIZE], u64>(id_bytes) }.to_be()
 }
 
-pub fn add_data(page: &mut Vec<u8>, cell_pos: u64, data: &Vec<u8>) -> Result<(), String> {
-    let num_cells = get_num_cells(page);
+fn add_data(page: &mut Vec<u8>, num_cells: u64, cell_pos: u64, data: &Vec<u8>) -> Result<(), String> {
     if num_cells < cell_pos {
         return Err(format!("cell_pos {} is higher than number of cells {} already present; You should split before",
             cell_pos, num_cells))
@@ -59,10 +159,7 @@ fn shift_data(page: &mut Vec<u8>, cell_pos: u64, num_cells: u64) {
     }
 }
 
-pub fn increment_cell_count(page: &mut Vec<u8>) {
-    let mut count = get_num_cells(page);
-    count += 1;
-
+pub fn set_cell_count(page: &mut Vec<u8>, count: usize) {
     let count_ref = get_cell_count_ref_mut(page);
     let count_bytes: [u8; consts::NUM_ENTRIES_SIZE] = unsafe { transmute(count.to_be()) };
 
@@ -120,12 +217,8 @@ pub fn new_leaf_node(is_root: bool, page_size: usize) -> Vec<u8> {
     bytes
 }
 
-pub fn find_new_key_pos(page: &Vec<u8>, key: i32) -> Result<u64, String> {
-    find_key(page, key).map_err(|e| e.1)
-}
-
-pub fn find_key_pos(page: &Vec<u8>, key: i32) -> u64 {
-    let pos = find_key(page, key);
+pub fn find_key_pos(page: &Vec<u8>, num_keys: u64, key: i32) -> u64 {
+    let pos = find_key(page, num_keys, key);
     if pos.is_ok() {
         return pos.unwrap()
     } else {
@@ -133,8 +226,7 @@ pub fn find_key_pos(page: &Vec<u8>, key: i32) -> u64 {
     }
 }
 
-fn find_key(page: &Vec<u8>, key: i32) -> Result<u64, (u64, String)> {
-    let num_keys = get_num_cells(page);
+fn find_key(page: &Vec<u8>, num_keys: u64, key: i32) -> Result<u64, (u64, String)> {
     if num_keys == 0 {
         return Ok(0)
     }
@@ -162,7 +254,7 @@ fn find_key(page: &Vec<u8>, key: i32) -> Result<u64, (u64, String)> {
     Ok(key_start_pos)
 }
 
-pub fn get_key_at(page: &Vec<u8>, key_pos: u64) -> i32 {
+fn get_key_at(page: &Vec<u8>, key_pos: u64) -> i32 {
     let mut id_bytes: [u8; consts::KEY_SIZE] = Default::default();
     let key_start_offset = consts::PAGE_HEADER_SIZE + consts::KEY_OFFSET;
     let key_offset = key_start_offset + (key_pos as usize * consts::CELL_SIZE);

@@ -42,7 +42,7 @@ fn process_command(context: &mut context::Context, table: &mut table::Table, use
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqliters::consts;
+    use sqliters::{consts, statement};
     use std::{fs, path::Path};
 
     #[test]
@@ -53,7 +53,7 @@ mod tests {
 
         let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
         let commands = ["insert 1 ashishnegi abc@abc.com", "select"];
-        let mut context = context::Context::new(Box::new(context::AssertSelectOutFn::new(1)));
+        let mut context = context::Context::new(Box::new(AssertSelectOutFn::new(1)));
 
         for command in commands.iter() {
             process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}'", command).as_str());
@@ -68,14 +68,14 @@ mod tests {
         test_setup(db_filename);
 
         let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
-        let mut context = context::Context::new(Box::new(context::AssertSelectOutFn::new(1)));
+        let mut context = context::Context::new(Box::new(AssertSelectOutFn::new(1)));
         let mut commands: Vec<String> =  (1 .. consts::TABLE_MAX_ROWS)
             .map(|s| format!("insert {} ashishnegi abc@abc.com", s))
             .collect::<Vec<String>>();
         commands.push(String::from("select"));
 
         for command in commands.iter() {
-            process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}'", command).as_str());
+            process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}' '{:?}'", command, table).as_str());
         }
         table.delete_db().expect("Unable to delete test db");
     }
@@ -103,8 +103,6 @@ mod tests {
     #[test]
     fn test_random_inserts_sorted_select()
     {
-        use downcast_rs::Downcast;
-
         let db_filename = "test4.db";
         test_setup(db_filename);
 
@@ -113,7 +111,7 @@ mod tests {
             .rev()
             .map(|s| format!("insert {} ashishnegi abc@abc.com", s))
             .collect::<Vec<String>>();
-        let mut context = context::Context::new(Box::new(context::AssertSelectOutFn::new(1)));
+        let mut context = context::Context::new(Box::new(AssertSelectOutFn::new(1)));
 
         for command in commands.iter() {
             process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}', table {:?}", command, table).as_str());
@@ -122,7 +120,7 @@ mod tests {
         assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
 
         // make sure that select saw all the rows.
-        if let Some(foo) = context.get_out().downcast_ref::<context::AssertSelectOutFn>() {
+        if let Some(foo) = context.get_out().downcast_ref::<AssertSelectOutFn>() {
             assert!(foo.count() as usize == consts::TABLE_MAX_ROWS,
                 "Should be able to see all previous data written after opening file again");
         } else {
@@ -144,7 +142,7 @@ mod tests {
                 .rev()
                 .map(|s| format!("insert {} ashishnegi abc@abc.com", s))
                 .collect::<Vec<String>>();
-            let mut context = context::Context::new(Box::new(context::AssertSelectOutFn::new(1)));
+            let mut context = context::Context::new(Box::new(AssertSelectOutFn::new(1)));
 
             for command in commands.iter() {
                 process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}', table {:?}", command, table).as_str());
@@ -155,13 +153,11 @@ mod tests {
 
         {
             let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
-            let mut context = context::Context::new(Box::new(context::AssertSelectOutFn::new(1)));
+            let mut context = context::Context::new(Box::new(AssertSelectOutFn::new(1)));
 
             assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
 
-            use downcast_rs::Downcast;
-
-            if let Some(foo) = context.get_out().downcast_ref::<context::AssertSelectOutFn>() {
+            if let Some(foo) = context.get_out().downcast_ref::<AssertSelectOutFn>() {
                 assert!(foo.count() as usize == consts::TABLE_MAX_ROWS,
                     "Should be able to see all previous data written after opening file again");
             } else {
@@ -175,6 +171,27 @@ mod tests {
     fn test_setup(db_filename: &str) {
         if Path::new(db_filename).exists() {
             fs::remove_file(db_filename).expect("Should be able to delete db file before starting test");
+        }
+    }
+
+    pub struct AssertSelectOutFn {
+        count: i32
+    }
+
+    impl AssertSelectOutFn {
+        pub fn new(count: i32) -> Self {
+            AssertSelectOutFn{count: count}
+        }
+
+        pub fn count(&self) -> i32 {
+            self.count
+        }
+    }
+
+    impl context::OutFn for AssertSelectOutFn {
+        fn outfn(&mut self, insert: &statement::InsertStatement) {
+            assert!(self.count == insert.id(), "self.count {} == insert.id() {}", self.count, insert.id());
+            self.count += 1;
         }
     }
 }

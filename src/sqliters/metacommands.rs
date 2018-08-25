@@ -1,5 +1,5 @@
 use std::process;
-use sqliters::{table, page};
+use sqliters::{table};
 
 pub fn process_meta_command(table: &mut table::Table, command: &str) -> Result<(), String>
 {
@@ -9,7 +9,7 @@ pub fn process_meta_command(table: &mut table::Table, command: &str) -> Result<(
             process::exit(0)
         },
         ".btree" => {
-            page::print_leaf_node(table.get_page(0)?);
+            table.get_page(0)?.print();
             Ok(())
         },
         _ => {

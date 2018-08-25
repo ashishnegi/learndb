@@ -1,4 +1,4 @@
-use sqliters::{pager, consts};
+use sqliters::{pager, consts, page};
 
 #[derive(Debug)]
 pub struct Table {
@@ -16,7 +16,7 @@ impl Table {
         })
     }
 
-    pub fn get_page(&mut self, page_num: usize) -> Result<&mut Vec<u8>, String> {
+    pub fn get_page(&mut self, page_num: usize) -> Result<&mut page::Page, String> {
         self.pager.get_page(page_num)
     }
 

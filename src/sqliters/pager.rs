@@ -5,7 +5,7 @@ use sqliters::page;
 
 #[derive(Debug)]
 pub struct Pager {
-    pages: Vec<Vec<u8>>,
+    pages: Vec<page::Page>,
     db_file: fs::File,
     db_filepath: String,
     filesize: u64,
@@ -20,7 +20,7 @@ impl Pager {
         let file = open_or_create_db_file(db_filepath)?;
         let filesize = get_filesize(db_filepath)?;
         let mut pager = Pager {
-            pages: iter::repeat(vec![]).take(max_pages).collect(),
+            pages: iter::repeat(page::Page::empty()).take(max_pages).collect(),
             db_file: file,
             db_filepath: String::from(db_filepath),
             filesize: filesize,
@@ -34,18 +34,18 @@ impl Pager {
         Ok(pager)
     }
 
-    pub fn get_page(&mut self, page_num: usize) -> Result<&mut Vec<u8>, String> {
+    pub fn get_page(&mut self, page_num: usize) -> Result<&mut page::Page, String> {
         if page_num >= self.max_pages {
             return Err(format!("{} greater than max pages {}.", page_num, self.max_pages));
         }
 
-        if self.pages[page_num].len() == 0 {
-            self.pages[page_num] = page::new_leaf_node(true, self.page_size);
+        if self.pages[page_num].is_empty() {
             println!("Num db pages: {}", self.num_db_pages());
             if self.num_db_pages() > page_num as u64 {
                 // page is present in db file
                 self.read_page_from_file(page_num)?;
             } else {
+                self.pages[page_num] = page::Page::new_leaf(true, self.page_size);
                 self.num_pages += 1; // one more page added.
             }
         }
@@ -55,7 +55,7 @@ impl Pager {
 
     pub fn read_page_from_file(&mut self, page_num: usize) -> Result<(), String> {
         // pages are written in order 0,1,2..N
-        let page_buffer = &mut self.pages[page_num];
+        let mut page_buffer = vec![0; self.page_size];
         let page_offset = (page_num * self.page_size) as u64;
         let offset = self.db_file
             .seek(io::SeekFrom::Start(page_offset))
@@ -73,6 +73,7 @@ impl Pager {
             format!("Could not read full page_buffer : bytes_read {} : page_buffer_len {}", bytes_read, page_buffer.len());
         }
 
+        self.pages[page_num] = page::Page::new(page_buffer);
         Ok(())
     }
 
@@ -85,16 +86,18 @@ impl Pager {
             return Err(format!("Page pos {} is greater than total number of pages.", self.pages.len()))
         }
 
-        let page = &self.pages[page_pos];
+        let page = &mut self.pages[page_pos];
 
-        if page.len() != 0 { // never bought in memory and never written ; so flush is no-op
-            if page.len() < self.page_size {
-                return Err(format!("Unexpected : Page size {} is smaller than the size to flush {}", page.len(), self.page_size))
+        if !page.is_empty() { // never bought in memory and never written ; so flush is no-op
+            if page.page_size() < self.page_size {
+                return Err(format!("Unexpected : Page size {} is smaller than the size to flush {}", page.page_size(), self.page_size))
             }
             self.db_file.seek(io::SeekFrom::Start((page_pos * self.page_size) as u64))
                     .map_err(|e| format!("Failed to seek in db file {}", e))?;
 
-            self.db_file.write(&page[..self.page_size])
+            page.flush();
+
+            self.db_file.write(page.get_data())
                 .map_err(|e| format!("Failed to write file {}", e))?;
         }
 
