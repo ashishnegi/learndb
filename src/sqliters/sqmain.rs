@@ -35,7 +35,7 @@ fn process_command(context: &mut context::Context, table: &mut table::Table, use
     match user_command.chars().next() {
         Some('.') => metacommands::process_meta_command(table, user_command),
         Some(_) => sqlcommands::process_sql_command(context, table, user_command),
-        None => panic!("Should not come here")
+        None => Err(String::from("command expected."))
     }
 }
 
