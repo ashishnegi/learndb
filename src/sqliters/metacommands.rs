@@ -9,7 +9,7 @@ pub fn process_meta_command(table: &mut table::Table, command: &str) -> Result<(
             process::exit(0)
         },
         ".btree" => {
-            table.get_page(0)?.print();
+            table.print();
             Ok(())
         },
         _ => {

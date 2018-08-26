@@ -62,6 +62,26 @@ mod tests {
     }
 
     #[test]
+    fn test_1_page_insert_select()
+    {
+        let db_filename = "test_1_page.db";
+        test_setup(db_filename);
+
+        let mut table = table::Table::new(db_filename).expect("Unable to create/open db file.");
+        let commands: Vec<String> =  (1 .. consts::CELLS_PER_PAGE)
+            .map(|s| format!("insert {} ashishnegi abc@abc.com", s))
+            .collect::<Vec<String>>();
+        let mut context = context::Context::new(Box::new(AssertSelectOutFn::new(1)));
+
+        for command in commands.iter() {
+            process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}'", command).as_str());
+        }
+
+        assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
+        table.delete_db().expect("Unable to delete test db");
+    }
+
+    #[test]
     fn test_inserts_select()
     {
         let db_filename = "test2.db";
@@ -75,7 +95,8 @@ mod tests {
         commands.push(String::from("select"));
 
         for command in commands.iter() {
-            process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}' '{:?}'", command, table).as_str());
+            process_command(&mut context, &mut table, command)
+                .expect(format!("Failed at command '{}' : table : {} \r\n : {:?} ", command, table.print(), table).as_str());
         }
         table.delete_db().expect("Unable to delete test db");
     }

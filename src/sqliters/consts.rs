@@ -12,7 +12,7 @@ pub const INSERT_STATEMENT_SIZE: usize = EMAIL_OFFSET + EMAIL_SIZE;
 
 // Page
 pub const PAGE_SIZE: usize = 2046;
-pub const TABLE_MAX_PAGES: usize = 1;
+pub const TABLE_MAX_PAGES: usize = 3;
 pub const ROW_SIZE: usize = INSERT_STATEMENT_SIZE;
 
 // Header size
@@ -39,13 +39,25 @@ pub const NONLEAF_NODE_TYPE: u8 = LEAF_NODE_TYPE + 1;
 pub const IS_ROOT_TYPE: u8 = 67;
 pub const NON_ROOT_TYPE: u8 = IS_ROOT_TYPE - 1;
 
+// Internal node
+pub const INTERNAL_NODE_PAGE_NUM_SIZE: usize = mem::size_of::<u64>();
+pub const INTERNAL_NODE_KEY_SIZE: usize = ID_SIZE;
+pub const INTERNAL_NODE_LEFT_PAGE_NUM_OFFSET: usize = 0;
+pub const INTERNAL_NODE_KEY_OFFSET: usize = INTERNAL_NODE_LEFT_PAGE_NUM_OFFSET + INTERNAL_NODE_PAGE_NUM_SIZE;
+pub const INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET: usize = INTERNAL_NODE_KEY_OFFSET + INTERNAL_NODE_KEY_SIZE;
+pub const INTERNAL_NODE_L_K_R_SIZE: usize = INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET + INTERNAL_NODE_PAGE_NUM_SIZE;
+
+// HEADER : LEFT : [ CELL : KEY : RIGHT ] : [ CELL : KEY : RIGHT ]
+pub const INTERNAL_NODE_CELL_SIZE: usize = INTERNAL_NODE_KEY_SIZE + INTERNAL_NODE_PAGE_NUM_SIZE;
+pub const INTERNAL_NODE_CELL_START_OFFSET: usize = PAGE_HEADER_SIZE + INTERNAL_NODE_KEY_OFFSET;
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_consts() {
-        assert!(TABLE_MAX_ROWS == 28, "TABLE_MAX_ROWS {}", TABLE_MAX_ROWS);
+        assert!(TABLE_MAX_ROWS == 84, "TABLE_MAX_ROWS {}", TABLE_MAX_ROWS);
         assert!(CELLS_PER_PAGE == 28, "CELLS_PER_PAGE {}", CELLS_PER_PAGE);
     }
 }

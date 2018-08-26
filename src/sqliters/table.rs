@@ -35,6 +35,15 @@ impl Table {
     pub fn num_pages(&mut self) -> u64 {
         self.pager.num_pages()
     }
+
+    pub fn split_page(&mut self, page_num: u64) -> Result<(), String> {
+        self.pager.split_page(page_num as usize)
+    }
+
+    pub fn print(&self) -> bool {
+        self.pager.print();
+        true
+    }
 }
 
 impl Drop for Table {

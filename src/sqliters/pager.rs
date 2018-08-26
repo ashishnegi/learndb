@@ -116,6 +116,43 @@ impl Pager {
         self.db_file.flush()
             .map_err(|e| format!("Failed to flush the db_file to disk : error : {}", e))
     }
+
+    pub fn split_page(&mut self, page_num: usize) -> Result<(), String> {
+        if self.pages[page_num].is_empty() {
+            return Err(format!("Can't split an empty page : {}", page_num));
+        }
+
+        if self.num_pages >= self.max_pages as u64 {
+            return Err(format!("Already added max number of pages: {}", self.max_pages));
+        }
+
+        let new_sibling_page = self.pages[page_num].split();
+        let next_page_num = self.get_unused_page_num();
+
+        self.pages[next_page_num as usize] = new_sibling_page;
+
+        if self.pages[page_num].is_root() {
+            let left_leaf_page_num = self.get_unused_page_num();
+            self.pages[left_leaf_page_num as usize] = self.pages[page_num].clone();
+            self.pages[left_leaf_page_num as usize].set_non_root();
+            // keep root at page_num
+            self.pages[page_num] = page::Page::new_root(left_leaf_page_num, next_page_num, &self.pages[left_leaf_page_num as usize]);
+        }
+
+        Ok(())
+    }
+
+    fn get_unused_page_num(&mut self) -> u64 {
+        let old_num_pages = self.num_pages();
+        self.num_pages += 1;
+        old_num_pages
+    }
+
+    pub fn print(&self) {
+        for i in 0 .. self.num_pages {
+            self.pages[i as usize].print();
+        }
+    }
 }
 
 impl Drop for Pager {

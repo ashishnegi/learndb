@@ -24,13 +24,13 @@ impl<'a> Cursor<'a> {
         let mut page_num = 0;
         let mut cell_num = 0;
         if num_pages != 0 {
-            let page = table.get_page(0)
+            page_num = num_pages - 1;
+            let page = table.get_page(page_num as usize)
                 .expect("cursor : Failed to get page 0 when confirmed to have page 0"); // 0 is root
             cell_num = page.find_key_pos(key);
-            page_num = num_pages - 1;
         }
 
-        println!("For key {}, num_pages {}, cell_num {}", key, num_pages, cell_num);
+        // println!("For key {}, num_pages {}, cell_num {}", key, num_pages, cell_num);
 
         Ok(Cursor {
             table: table,
@@ -64,14 +64,16 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn serialize_row_add(&mut self, data: Vec<u8>) -> Result<(), String> {
-        if self.cell_num >= consts::TABLE_MAX_ROWS as u64 {
-            // currently we have only one page..
-            return Err(format!("{} row is out of space allocated to table {}", self.cell_num, consts::TABLE_MAX_ROWS))
+        let key = page::deserialize_key(&data[0 .. consts::KEY_SIZE]);
+
+        if self.cell_num >= consts::CELLS_PER_PAGE as u64 {
+            // split this page.
+            self.table.split_page(self.page_num)?;
+            let page = self.table.get_page(self.page_num as usize)?;
+            self.cell_num = page.find_key_pos(key);
         }
 
-        println!("{:?}", self);
-
-        self.add_row(data)?;
+        self.add_row(key, data)?;
         self.advance_cursor()
     }
 
@@ -91,13 +93,15 @@ impl<'a> Cursor<'a> {
         return Ok(&mut page.get_data()[row_offset .. row_offset + consts::CELL_SIZE])
     }
 
-    fn add_row(&mut self, data: Vec<u8>) -> Result<(), String> {
+    fn add_row(&mut self, key: i32, data: Vec<u8>) -> Result<(), String> {
         if data.len() != consts::ROW_SIZE {
             return Err(format!("Can't store a data of size {} != {}", data.len(), consts::ROW_SIZE))
         }
 
         let page = self.table.get_page(self.page_num as usize)?;
-        let key = page::deserialize_key(&data[0 .. consts::KEY_SIZE]);
+
+        // println!("adding row : key: {}, page_num {}, cell_num {}, page {:?}", key, self.page_num, self.cell_num, page);
+
         if key == page.get_key_at(self.cell_num) {
             return Err(format!("Can not insert duplicate keys {}; Already present at pos: {}", key, self.cell_num))
         }
