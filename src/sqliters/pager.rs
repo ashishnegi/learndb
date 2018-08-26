@@ -136,7 +136,7 @@ impl Pager {
             self.pages[left_leaf_page_num as usize] = self.pages[page_num].clone();
             self.pages[left_leaf_page_num as usize].set_non_root();
             // keep root at page_num
-            self.pages[page_num] = page::Page::new_root(left_leaf_page_num, next_page_num, &self.pages[left_leaf_page_num as usize]);
+            self.pages[page_num] = page::Page::new_root(self.page_size, left_leaf_page_num, next_page_num, &self.pages[left_leaf_page_num as usize]);
         }
 
         Ok(())

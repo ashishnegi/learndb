@@ -44,27 +44,29 @@ impl Page {
         }
     }
 
-    pub fn new_root(left_page_num: u64, right_page_num: u64, left: &Page) -> Self {
+    pub fn new_root(page_size: usize, left_page_num: u64, right_page_num: u64, left: &Page) -> Self {
         let max_key = left.max_key();
-        let mut bytes = vec![0; consts::PAGE_HEADER_SIZE + consts::INTERNAL_NODE_L_K_R_SIZE];
+        let mut bytes = vec![0; page_size];
 
-        let left_page_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = unsafe { transmute(left_page_num.to_be()) };
-        let header_offset = consts::PAGE_HEADER_SIZE + consts::INTERNAL_NODE_LEFT_PAGE_NUM_OFFSET;
-        let left_page_num_offset = header_offset + consts::INTERNAL_NODE_KEY_OFFSET;
-        bytes[header_offset .. left_page_num_offset]
-            .copy_from_slice(&left_page_bytes);
+        let header_offset = consts::PAGE_HEADER_SIZE;
 
-        let key_start_offset = header_offset + consts::INTERNAL_NODE_KEY_OFFSET;
-        let key_end_offset = header_offset + consts::INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET;
-        let key_bytes: [u8; consts::KEY_SIZE] = unsafe {transmute(max_key.to_be())};
-        bytes[key_start_offset .. key_end_offset]
-            .copy_from_slice(&key_bytes);
-
-        let right_start_offset = header_offset + consts::INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET;
-        let right_end_offset = header_offset + consts::INTERNAL_NODE_L_K_R_SIZE;
+        let right_start_offset = consts::INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET;
+        let right_end_offset = right_start_offset + consts::INTERNAL_NODE_PAGE_NUM_SIZE;
         let right_page_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = unsafe { transmute(right_page_num.to_be()) };
         bytes[right_start_offset .. right_end_offset]
             .copy_from_slice(&right_page_bytes);
+
+        let left_page_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = unsafe { transmute(left_page_num.to_be()) };
+        let left_page_num_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + consts::INTERNAL_NODE_LEFT_PAGE_NUM_OFFSET;
+        let left_page_num_end_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + consts::INTERNAL_NODE_KEY_OFFSET;
+        bytes[left_page_num_start_offset .. left_page_num_end_offset]
+            .copy_from_slice(&left_page_bytes);
+
+        let key_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + consts::INTERNAL_NODE_KEY_OFFSET;
+        let key_end_offset = key_start_offset + consts::INTERNAL_NODE_KEY_SIZE;
+        let key_bytes: [u8; consts::KEY_SIZE] = unsafe {transmute(max_key.to_be())};
+        bytes[key_start_offset .. key_end_offset]
+            .copy_from_slice(&key_bytes);
 
         Page {
             is_root: true,
@@ -184,8 +186,12 @@ impl Page {
     pub fn find_key_pos(&self, key: i32) -> u64 {
         match self.node_type {
             NodeType::Leaf => self.leaf_find_key(key),
-            NodeType::Internal => panic!("Implement search inside internal_node")
+            NodeType::Internal => self.internal_node_find_key(key)
         }
+    }
+
+    fn internal_node_find_key(&self, key: i32) -> u64 {
+        panic!("internal_node_find_key not implemented")
     }
 
     fn leaf_find_key(&self, key: i32) -> u64 {
@@ -279,9 +285,10 @@ fn leaf_shift_data(page: &mut Vec<u8>, cell_pos: u64, num_cells: u64) {
 }
 
 fn internal_node_shift_data(page: &mut Vec<u8>, cell_pos: u64, num_cells: u64) {
-    let copy_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (cell_pos as usize * consts::INTERNAL_NODE_CELL_SIZE);
-    let copy_end_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (num_cells as usize * consts::INTERNAL_NODE_CELL_SIZE);
-    shift_data(page, copy_start_offset, copy_end_offset)
+    panic!("internal_node_shift_data not implemented")
+    // let copy_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (cell_pos as usize * consts::INTERNAL_NODE_CELL_SIZE);
+    // let copy_end_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (num_cells as usize * consts::INTERNAL_NODE_CELL_SIZE);
+    // shift_data(page, copy_start_offset, copy_end_offset)
 }
 
 fn set_cell_count(page: &mut Vec<u8>, count: usize) {
@@ -335,7 +342,7 @@ fn leaf_get_key_at(page: &Vec<u8>, key_pos: u64) -> i32 {
 }
 
 fn internal_node_get_key_at(page: &Vec<u8>, key_pos: u64) -> i32 {
-    let key_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET;
+    let key_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + consts::INTERNAL_NODE_KEY_OFFSET;
     get_key_at(page, key_start_offset, consts::INTERNAL_NODE_CELL_SIZE, key_pos)
 }
 
