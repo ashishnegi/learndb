@@ -2,8 +2,7 @@ use sqliters::{pager, consts, page};
 
 #[derive(Debug)]
 pub struct Table {
-    pager: pager::Pager,
-    root_page_num: u64,
+    pager: pager::Pager
 }
 
 impl Table {
@@ -11,8 +10,7 @@ impl Table {
         let pager = pager::Pager::new(consts::PAGE_SIZE, consts::TABLE_MAX_PAGES, db_filepath)?;
 
         Ok(Table {
-            pager: pager,
-            root_page_num: 0,
+            pager: pager
         })
     }
 
@@ -43,6 +41,12 @@ impl Table {
     pub fn print(&self) -> bool {
         self.pager.print();
         true
+    }
+
+    pub fn find_key_pos(&mut self, key: i32) -> Result<(u64, u64), String> {
+        // root is always 0
+        let _root_page = self.pager.get_page(0)?;
+        Ok((_root_page.find_key_pos(key), 0))
     }
 }
 

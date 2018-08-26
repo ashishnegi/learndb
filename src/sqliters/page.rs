@@ -182,19 +182,17 @@ impl Page {
     }
 
     pub fn find_key_pos(&self, key: i32) -> u64 {
-        let pos = self.find_key(key);
-        if pos.is_ok() {
-            return pos.unwrap()
-        } else {
-            pos.unwrap_err().0
+        match self.node_type {
+            NodeType::Leaf => self.leaf_find_key(key),
+            NodeType::Internal => panic!("Implement search inside internal_node")
         }
     }
 
-    fn find_key(&self, key: i32) -> Result<u64, (u64, String)> {
+    fn leaf_find_key(&self, key: i32) -> u64 {
         let num_keys = self.num_cells();
 
         if num_keys == 0 {
-            return Ok(0)
+            return 0;
         }
 
         let mut key_start_pos = 0;
@@ -207,7 +205,7 @@ impl Page {
             println!("Binary search: key {}, mid_key {}, pos {}, num_keys {}", key, mid_key, key_pos, num_keys);
 
             if key == mid_key {
-                return Err((key_pos, format!("Duplicate key {} present at index {} in page", key, key_pos)))
+                return key_pos;
             } else if key > mid_key {
                 key_start_pos = key_pos + 1;
             } else if key_pos == 0 {
@@ -217,7 +215,7 @@ impl Page {
             }
         }
 
-        Ok(key_start_pos)
+        return key_start_pos;
     }
 }
 

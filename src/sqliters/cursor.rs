@@ -24,10 +24,9 @@ impl<'a> Cursor<'a> {
         let mut page_num = 0;
         let mut cell_num = 0;
         if num_pages != 0 {
-            page_num = num_pages - 1;
-            let page = table.get_page(page_num as usize)
-                .expect("cursor : Failed to get page 0 when confirmed to have page 0"); // 0 is root
-            cell_num = page.find_key_pos(key);
+            let key_pos = table.find_key_pos(key)?;
+            page_num = key_pos.0;
+            cell_num = key_pos.1;
         }
 
         // println!("For key {}, num_pages {}, cell_num {}", key, num_pages, cell_num);
@@ -69,8 +68,9 @@ impl<'a> Cursor<'a> {
         if self.cell_num >= consts::CELLS_PER_PAGE as u64 {
             // split this page.
             self.table.split_page(self.page_num)?;
-            let page = self.table.get_page(self.page_num as usize)?;
-            self.cell_num = page.find_key_pos(key);
+            let key_pos = self.table.find_key_pos(key)?;
+            self.page_num = key_pos.0;
+            self.cell_num = key_pos.1;
         }
 
         self.add_row(key, data)?;
