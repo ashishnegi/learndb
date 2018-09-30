@@ -45,9 +45,22 @@ impl Table {
 
     pub fn find_key_pos(&mut self, key: i32) -> Result<(u64, u64), String> {
         // root is always 0
-        let _root_page = self.pager.get_page(0)?;
+        let mut leaf_page = Err("");
+        let mut leaf_page_num = 0;
+
         // return page_num and cell_num
-        Ok((0, _root_page.find_key_pos(key)))
+        while true
+        {
+            let l_leaf_page = self.pager.get_page(leaf_page_num as usize)?;
+            if !l_leaf_page.is_leaf() {
+                break;
+            }
+
+            leaf_page_num = l_leaf_page.find_key_pos(key);
+            leaf_page = Ok(l_leaf_page);
+        }
+
+        Ok ((leaf_page_num, leaf_page.unwrap().find_key_pos(key)))
     }
 }
 

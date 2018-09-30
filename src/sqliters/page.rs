@@ -191,7 +191,7 @@ impl Page {
     }
 
     fn internal_node_find_key(&self, key: i32) -> u64 {
-        panic!("internal_node_find_key not implemented")
+        self.leaf_find_key(key)
     }
 
     fn leaf_find_key(&self, key: i32) -> u64 {
