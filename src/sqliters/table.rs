@@ -46,7 +46,8 @@ impl Table {
     pub fn find_key_pos(&mut self, key: i32) -> Result<(u64, u64), String> {
         // root is always 0
         let _root_page = self.pager.get_page(0)?;
-        Ok((_root_page.find_key_pos(key), 0))
+        // return page_num and cell_num
+        Ok((0, _root_page.find_key_pos(key)))
     }
 }
 
