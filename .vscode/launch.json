@@ -2,13 +2,24 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "cargo test",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/learndb-4103a5a98e29cfdf.exe",
+            "args": ["test", "test_max_inserts_select"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true
+        },
+        {
             "name": "(Windows) Attach",
             "type": "cppvsdbg",
             "request": "attach",
             "processId": "${command:pickProcess}"
         },
         {
-            "name": "(Windows) Launch",
+            "name": "learndb.exe",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/learndb.exe",
