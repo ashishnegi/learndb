@@ -153,6 +153,20 @@ impl Pager {
             self.pages[i as usize].print();
         }
     }
+
+    pub fn find_key_pos(&mut self, key: i32) -> Result<(u64, u64), String> {
+        let mut page_num = 0;
+        loop {
+            let page = self.get_page(page_num)?;
+            if page.is_leaf() {
+                return Ok((page_num as u64, page.find_key_pos(key)))
+            } else {
+                let pos = page.find_key_pos(key);
+                let cell = page.get_cell(pos);
+                page_num = page::internal_node_left_page_num(cell);
+            }
+        }
+    }
 }
 
 impl Drop for Pager {

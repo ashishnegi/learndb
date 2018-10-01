@@ -223,6 +223,13 @@ impl Page {
 
         return key_start_pos;
     }
+
+    pub fn get_cell(&self, key_pos: u64) -> Vec<u8> {
+        match self.node_type {
+            NodeType::Leaf => panic!("get_cell not implemented for leaf"),
+            NodeType::Internal => internal_node_cell_at(&self.data, key_pos)
+        }
+    }
 }
 
 fn is_leaf_node(page: &Vec<u8>) -> bool {
@@ -346,9 +353,22 @@ fn internal_node_get_key_at(page: &Vec<u8>, key_pos: u64) -> i32 {
     get_key_at(page, key_start_offset, consts::INTERNAL_NODE_CELL_SIZE, key_pos)
 }
 
+fn internal_node_cell_at(page: &Vec<u8>, key_pos: u64) -> Vec<u8> {
+    let mut cell_bytes: [u8; consts::INTERNAL_NODE_CELL_SIZE] = Default::default();
+    let cell_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (key_pos as usize * consts::INTERNAL_NODE_CELL_SIZE);
+    cell_bytes.copy_from_slice(&page[cell_offset .. cell_offset + consts::INTERNAL_NODE_CELL_SIZE]);
+    cell_bytes.to_vec()
+}
+
 pub fn deserialize_key(buf: &[u8]) -> i32 {
     let mut id_bytes: [u8; consts::KEY_SIZE] = Default::default();
     id_bytes.copy_from_slice(buf);
     // key is i32 ; same as id
     unsafe { transmute::<[u8;4], i32>(id_bytes) }.to_be()
+}
+
+pub fn internal_node_left_page_num(buf: &[u8]) -> u64 {
+    let mut page_num_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = Default::default();
+    page_num_bytes.copy_from_slice(buf);
+    unsafe { transmute::<[u8;8], u64>(page_num_bytes) }.to_be()
 }
