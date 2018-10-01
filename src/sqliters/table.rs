@@ -47,11 +47,12 @@ impl Table {
         // root is always 0
         let mut leaf_page = Err("");
         let mut leaf_page_num = 0;
-
+        let mut pager = &mut self.pager;
         // return page_num and cell_num
-        while true
+        loop
         {
-            let l_leaf_page = self.pager.get_page(leaf_page_num as usize)?;
+            let tmp = pager;
+            let l_leaf_page = tmp.get_page(leaf_page_num as usize)?;
             if !l_leaf_page.is_leaf() {
                 break;
             }
