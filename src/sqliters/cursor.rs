@@ -65,7 +65,7 @@ impl<'a> Cursor<'a> {
     pub fn serialize_row_add(&mut self, data: Vec<u8>) -> Result<(), String> {
         let key = page::deserialize_key(&data[0 .. consts::KEY_SIZE]);
 
-        if self.cell_num >= consts::CELLS_PER_PAGE as u64 {
+        if self.table.get_page(self.page_num as usize)?.num_cells() >= consts::CELLS_PER_PAGE as u64 {
             // split this page.
             self.table.split_page(self.page_num)?;
             let key_pos = self.table.find_key_pos(key)?;

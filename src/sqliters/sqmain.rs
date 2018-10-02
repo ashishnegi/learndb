@@ -98,6 +98,13 @@ mod tests {
             process_command(&mut context, &mut table, command)
                 .expect(format!("Failed at command '{}' : table : {} \r\n : {:?} ", command, table.print(), table).as_str());
         }
+        // make sure that select saw all the rows.
+        if let Some(foo) = context.get_out().downcast_ref::<AssertSelectOutFn>() {
+            assert!(foo.count() as usize == consts::TABLE_MAX_ROWS,
+                "Should be able to see all data written {}", foo.count());
+        } else {
+            assert!(true, "Failed to get AssertSelectOutFn out of context");
+        }
         table.delete_db().expect("Unable to delete test db");
     }
 
@@ -111,13 +118,20 @@ mod tests {
         let commands: Vec<String> = (1 .. consts::TABLE_MAX_ROWS)
             .map(|s| format!("insert {} ashishnegi abc@abc.com", s))
             .collect::<Vec<String>>();
-        let mut context = context::Context::new(Box::new(context::ConsoleOutFn::new()));
+        let mut context = context::Context::new(Box::new(AssertSelectOutFn::new(1)));
 
         for command in commands.iter() {
             process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}', table {:?}", command, table).as_str());
         }
         assert!(process_command(&mut context, &mut table, "insert 2 abc abc@bcd.com").is_err(), "should not be able to insert more data");
         assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
+        // make sure that select saw all the rows.
+        if let Some(foo) = context.get_out().downcast_ref::<AssertSelectOutFn>() {
+            assert!(foo.count() as usize == consts::TABLE_MAX_ROWS,
+                "Should be able to see all data written {}", foo.count());
+        } else {
+            assert!(true, "Failed to get AssertSelectOutFn out of context");
+        }
         table.delete_db().expect("Unable to delete test db");
     }
 
@@ -143,7 +157,7 @@ mod tests {
         // make sure that select saw all the rows.
         if let Some(foo) = context.get_out().downcast_ref::<AssertSelectOutFn>() {
             assert!(foo.count() as usize == consts::TABLE_MAX_ROWS,
-                "Should be able to see all previous data written after opening file again");
+                "Should be able to see all data written");
         } else {
             assert!(true, "Failed to get AssertSelectOutFn out of context");
         }
@@ -170,6 +184,14 @@ mod tests {
             }
 
             assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
+            if let Some(foo) = context.get_out().downcast_ref::<AssertSelectOutFn>() {
+                assert!(foo.count() as usize == consts::TABLE_MAX_ROWS,
+                    "Should be able to see all data written");
+            } else {
+                assert!(false, "Failed to get AssertSelectOutFn out of context");
+            }
+
+            table.print();
         }
 
         {

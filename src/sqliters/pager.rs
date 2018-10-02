@@ -123,7 +123,7 @@ impl Pager {
         }
 
         if self.num_pages >= self.max_pages as u64 {
-            return Err(format!("Already added max number of pages: {}", self.max_pages));
+            return Err(format!("Already added max number of pages: {} : Adding {}", self.max_pages, page_num));
         }
 
         let new_sibling_page = self.pages[page_num].split();
@@ -150,6 +150,7 @@ impl Pager {
 
     pub fn print(&self) {
         for i in 0 .. self.num_pages {
+            print!("page_num: {} => ", i);
             self.pages[i as usize].print();
         }
     }
@@ -162,10 +163,16 @@ impl Pager {
                 return Ok((page_num as u64, page.find_key_pos(key)))
             } else {
                 let pos = page.find_key_pos(key);
-                let cell = page.get_cell(pos);
-                page_num = page::internal_node_left_page_num(cell);
+                let new_page_num = page.get_page_num(pos) as usize;
+                if new_page_num == page_num {
+                    break;
+                }
+                page_num = new_page_num;
             }
         }
+
+        self.print();
+        panic!("Can't have same page_num {}", page_num);
     }
 }
 

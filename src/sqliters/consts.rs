@@ -32,7 +32,7 @@ pub const VALUE_OFFSET: usize = KEY_OFFSET + KEY_SIZE;
 pub const CELL_SIZE: usize = VALUE_OFFSET + VALUE_SIZE;
 pub const CELLS_PER_PAGE: usize = (PAGE_SIZE - PAGE_HEADER_SIZE) / CELL_SIZE;
 
-pub const TABLE_MAX_ROWS: usize = CELLS_PER_PAGE * TABLE_MAX_PAGES;
+pub const TABLE_MAX_ROWS: usize = 43; // CELLS_PER_PAGE * TABLE_MAX_PAGES;
 
 pub const LEAF_NODE_TYPE: u8 = 1;
 pub const NONLEAF_NODE_TYPE: u8 = LEAF_NODE_TYPE + 1;
@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_consts() {
-        assert!(TABLE_MAX_ROWS == 84, "TABLE_MAX_ROWS {}", TABLE_MAX_ROWS);
+        assert!(TABLE_MAX_ROWS == 43, "TABLE_MAX_ROWS {}", TABLE_MAX_ROWS);
         assert!(CELLS_PER_PAGE == 28, "CELLS_PER_PAGE {}", CELLS_PER_PAGE);
     }
 }

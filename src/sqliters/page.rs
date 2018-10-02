@@ -1,4 +1,4 @@
-use sqliters::consts;
+use sqliters::{consts, page};
 use std::mem::transmute;
 
 #[derive(Debug, Clone)]
@@ -110,7 +110,11 @@ impl Page {
     pub fn get_key_at(&self, key_pos: u64) -> i32 {
         match self.node_type {
             NodeType::Leaf => leaf_get_key_at(&self.data, key_pos),
-            NodeType::Internal => internal_node_get_key_at(&self.data, key_pos)
+            NodeType::Internal => {
+                // handle when key_pos == num_cells - 1
+                // return key after header
+                internal_node_get_key_at(&self.data, key_pos)
+            }
         }
     }
 
@@ -136,9 +140,20 @@ impl Page {
 
     pub fn print(&self) -> bool {
         print!("leaf: {}, root: {}, num_cells: {}, keys: ", self.is_leaf(), self.is_root, self.num_cells);
+        match self.node_type {
+            NodeType::Internal => print!("right_page_num: {}, ", self.get_page_num(self.num_cells())),
+            _ => {}
+        }
 
         for i in 0 .. self.num_cells {
             print!("{}, ", self.get_key_at(i));
+            match self.node_type {
+                NodeType::Internal => {
+                    let cell = self.get_cell(i);
+                    print!("->{},", page::internal_node_left_page_num(&cell))
+                },
+                _ => {}
+            }
         }
 
         println!("");
@@ -221,13 +236,33 @@ impl Page {
             }
         }
 
+        println!("Result : binsearch : key {} : key_start_pos : {}", key, key_start_pos);
         return key_start_pos;
     }
 
     pub fn get_cell(&self, key_pos: u64) -> Vec<u8> {
+        if key_pos >= self.num_cells() {
+            self.print();
+            panic!("Key_pos {} >= num_cells {}", key_pos, self.num_cells());
+        }
+
         match self.node_type {
             NodeType::Leaf => panic!("get_cell not implemented for leaf"),
             NodeType::Internal => internal_node_cell_at(&self.data, key_pos)
+        }
+    }
+
+    pub fn get_page_num(&self, cell_pos: u64) -> u64 {
+        match self.node_type {
+            NodeType::Leaf => panic!("get_page_num should not be called on leaf node"),
+            NodeType::Internal => {
+                if cell_pos == self.num_cells() {
+                    page::internal_node_right_page_num(&self.data)
+                } else {
+                    let cell = self.get_cell(cell_pos);
+                    page::internal_node_left_page_num(&cell)
+                }
+            }
         }
     }
 }
@@ -367,8 +402,17 @@ pub fn deserialize_key(buf: &[u8]) -> i32 {
     unsafe { transmute::<[u8;4], i32>(id_bytes) }.to_be()
 }
 
-pub fn internal_node_left_page_num(buf: &[u8]) -> u64 {
+pub fn internal_node_left_page_num(buf: &Vec<u8>) -> u64 {
     let mut page_num_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = Default::default();
-    page_num_bytes.copy_from_slice(buf);
+    page_num_bytes.copy_from_slice(
+        &buf[consts::INTERNAL_NODE_LEFT_PAGE_NUM_OFFSET ..
+            consts::INTERNAL_NODE_KEY_OFFSET]);
+    unsafe { transmute::<[u8;8], u64>(page_num_bytes) }.to_be()
+}
+
+pub fn internal_node_right_page_num(page: &Vec<u8>) -> u64 {
+    let mut page_num_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = Default::default();
+    page_num_bytes.copy_from_slice(
+        &page[consts::INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET .. consts::INTERNAL_NODE_CELL_START_OFFSET]);
     unsafe { transmute::<[u8;8], u64>(page_num_bytes) }.to_be()
 }
