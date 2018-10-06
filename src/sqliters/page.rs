@@ -175,6 +175,7 @@ impl Page {
         set_is_root(&mut self.data, self.is_root);
         set_node_type(&mut self.data, &self.node_type);
         set_cell_count(&mut self.data, self.num_cells as usize);
+        set_next_sibling_num(&mut self.data, self.next_sibling_num);
     }
 
     pub fn split(&mut self) -> Page {
@@ -303,11 +304,11 @@ fn set_node_type(page: &mut Vec<u8>, node_type: &NodeType) {
 }
 
 fn get_cell_count_ref(page: &Vec<u8>) -> &[u8] {
-    &page[consts::NUM_ENTRIES_OFFSET..consts::PAGE_HEADER_SIZE]
+    &page[consts::NUM_ENTRIES_OFFSET..consts::NEXT_LEAF_NODE_OFFSET]
 }
 
 fn get_cell_count_ref_mut(page: &mut Vec<u8>) -> &mut [u8] {
-    &mut page[consts::NUM_ENTRIES_OFFSET..consts::PAGE_HEADER_SIZE]
+    &mut page[consts::NUM_ENTRIES_OFFSET..consts::NEXT_LEAF_NODE_OFFSET]
 }
 
 fn get_num_cells(page: &Vec<u8>) -> u64 {
@@ -358,6 +359,13 @@ fn set_cell_count(page: &mut Vec<u8>, count: usize) {
     for c in 0..consts::NUM_ENTRIES_SIZE {
         count_ref[c] = count_bytes[c];
     }
+}
+
+fn set_next_sibling_num(page: &mut Vec<u8>, next_sibling_num: u64) {
+    let next_sibling_num_ref = &mut page[consts::NEXT_LEAF_NODE_OFFSET ..
+        consts::NEXT_LEAF_NODE_OFFSET + consts::NEXT_LEAF_NODE_NUM_SIZE];
+    let next_sibling_num_bytes: [u8; consts::NEXT_LEAF_NODE_NUM_SIZE] = unsafe { transmute(next_sibling_num.to_be()) };
+    next_sibling_num_ref.copy_from_slice(&next_sibling_num_bytes);
 }
 
 fn is_root_node(page: &Vec<u8>) -> bool {
