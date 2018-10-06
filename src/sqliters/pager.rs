@@ -128,6 +128,7 @@ impl Pager {
 
         let new_sibling_page = self.pages[page_num].split();
         let next_page_num = self.get_unused_page_num();
+        self.pages[page_num].set_next_sibling_num(next_page_num);
 
         self.pages[next_page_num as usize] = new_sibling_page;
 

@@ -22,7 +22,9 @@ pub const IS_ROOT_SIZE: usize = mem::size_of::<u8>();
 pub const IS_ROOT_OFFSET: usize = PAGE_TYPE_OFFSET + PAGE_TYPE_SIZE;
 pub const NUM_ENTRIES_SIZE: usize = mem::size_of::<u64>();
 pub const NUM_ENTRIES_OFFSET: usize = IS_ROOT_OFFSET + IS_ROOT_SIZE;
-pub const PAGE_HEADER_SIZE: usize = NUM_ENTRIES_OFFSET + NUM_ENTRIES_SIZE;
+pub const NEXT_LEAF_NODE_NUM_SIZE: usize = mem::size_of::<u64>();
+pub const NEXT_LEAF_NODE_OFFSET: usize = NUM_ENTRIES_OFFSET + NUM_ENTRIES_SIZE;
+pub const PAGE_HEADER_SIZE: usize = NEXT_LEAF_NODE_OFFSET + NEXT_LEAF_NODE_NUM_SIZE;
 
 // Leaf node : Offsets in body
 pub const KEY_SIZE: usize = ID_SIZE;

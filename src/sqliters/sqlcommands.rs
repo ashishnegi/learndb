@@ -34,7 +34,7 @@ fn execute_insert_statement(table: &mut table::Table, statement: statement::Inse
 
 fn execute_select_statement(context: &mut context::Context, table: &mut table::Table) -> Result<(), String>
 {
-    let mut cursor = cursor::Cursor::table_start(table);
+    let mut cursor = cursor::Cursor::table_start(table)?;
 
     while !cursor.end_of_table() {
         {

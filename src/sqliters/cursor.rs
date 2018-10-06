@@ -1,3 +1,4 @@
+use std;
 use sqliters::{table, page, consts};
 
 #[derive(Debug)]
@@ -9,14 +10,22 @@ pub struct Cursor<'a> {
 }
 
 impl<'a> Cursor<'a> {
-    pub fn table_start(table: &'a mut table::Table) -> Self {
+    pub fn table_start(table: &'a mut table::Table) -> Result<Self, String> {
         let num_pages = table.num_pages();
-        Cursor {
-            table: table,
-            page_num: 0,
-            cell_num: 0,
-            end_of_table: num_pages == 0
+        let mut page_num = 0;
+        let mut cell_num = 0;
+        if num_pages != 0 {
+            let key_pos = table.find_key_pos(std::i32::MIN)?; // go to last leaf.
+            page_num = key_pos.0;
+            cell_num = key_pos.1;
         }
+
+        Ok(Cursor {
+            table: table,
+            page_num: page_num,
+            cell_num: cell_num,
+            end_of_table: num_pages == 0
+        })
     }
 
     pub fn table_find(table: &'a mut table::Table, key: i32) -> Result<Self, String> {
@@ -35,7 +44,7 @@ impl<'a> Cursor<'a> {
             table: table,
             page_num: page_num, // page_num is index.
             cell_num: cell_num,
-            end_of_table: true
+            end_of_table: true // we don't want to advance ahead.
         })
     }
 
@@ -47,16 +56,24 @@ impl<'a> Cursor<'a> {
     pub fn advance_cursor(&mut self) -> Result<(), String> {
         if !self.end_of_table {
             self.cell_num += 1;
-            if self.cell_num >= consts::CELLS_PER_PAGE as u64 {
-                self.end_of_table = true;
-                return Ok(());
-            }
+            loop {
+                let page = self.table.get_page(self.page_num as usize)?;
+                if self.cell_num >= page.num_cells() as u64 {
+                    let old_page_num = self.page_num;
+                    self.page_num = page.next_sibling_num();
+                    // value 0 means that no next_sibling.
+                    if self.page_num == 0 {
+                        self.end_of_table = true;
+                        return Ok(())
+                    }
 
-            // otherwise read page and find number of cells.
-            let page = self.table.get_page(self.page_num as usize)?;
-            let num_cells = page.num_cells();
-            if self.cell_num >= num_cells {
-                self.end_of_table = true;
+                    assert!(old_page_num != self.page_num, "{} referes to next_sibling {}", old_page_num, self.page_num);
+                    // otherwise, since cells are sorted, start from next page's 0th cell_num
+                    self.cell_num = 0;
+                    continue;
+                }
+
+                break;
             }
         }
         Ok(())

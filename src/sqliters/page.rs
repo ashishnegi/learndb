@@ -12,17 +12,22 @@ pub struct Page {
     is_root: bool,
     node_type: NodeType,
     data: Vec<u8>,
-    num_cells: u64
+    num_cells: u64,
+    next_sibling_num: u64
 }
 
 impl Page {
     pub fn new(data: Vec<u8>) -> Self {
         let num_cells = get_num_cells(&data);
+        let is_leaf = is_leaf_node(&data);
+        let next_sibling_num = if is_leaf { leaf_node_next_sibling_num(&data) } else { 0 };
+        let node_type = if is_leaf { NodeType::Leaf } else { NodeType::Internal };
         Page {
-            is_root: is_root_node(&data),
-            node_type: if is_leaf_node(&data) { NodeType::Leaf } else { NodeType::Internal },
+            is_root: !is_leaf,
+            node_type: node_type,
             data: data,
-            num_cells: num_cells
+            num_cells: num_cells,
+            next_sibling_num: next_sibling_num,
         }
     }
 
@@ -31,7 +36,8 @@ impl Page {
             is_root: false,
             node_type: NodeType::Leaf,
             data: vec![],
-            num_cells: 0
+            num_cells: 0,
+            next_sibling_num: 0,
         }
     }
 
@@ -40,15 +46,14 @@ impl Page {
             is_root: is_root,
             node_type: NodeType::Leaf,
             data: new_leaf_node(is_root, page_size),
-            num_cells: 0
+            num_cells: 0,
+            next_sibling_num: 0,
         }
     }
 
     pub fn new_root(page_size: usize, left_page_num: u64, right_page_num: u64, left: &Page) -> Self {
         let max_key = left.max_key();
         let mut bytes = vec![0; page_size];
-
-        let header_offset = consts::PAGE_HEADER_SIZE;
 
         let right_start_offset = consts::INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET;
         let right_end_offset = right_start_offset + consts::INTERNAL_NODE_PAGE_NUM_SIZE;
@@ -72,7 +77,8 @@ impl Page {
             is_root: true,
             node_type: NodeType::Internal,
             data: bytes,
-            num_cells: 1
+            num_cells: 1,
+            next_sibling_num: 0, // 0 for all internal nodes.
         }
     }
 
@@ -179,7 +185,8 @@ impl Page {
                     is_root: false,
                     node_type: NodeType::Leaf,
                     data: new_leaf_node(false, self.page_size()),
-                    num_cells: self.num_cells - new_my_num_cells
+                    num_cells: self.num_cells - new_my_num_cells,
+                    next_sibling_num: self.next_sibling_num // this gets my next_sibling. // caller should set mine.
                 };
 
                 let to_move_byte_size = new_page.num_cells as usize * consts::CELL_SIZE;
@@ -264,6 +271,17 @@ impl Page {
                 }
             }
         }
+    }
+
+    pub fn next_sibling_num(&self) -> u64 {
+        match self.node_type {
+            NodeType::Internal => panic!("next_sibling_num should not be called for Internal node."),
+            NodeType::Leaf => self.next_sibling_num
+        }
+    }
+
+    pub fn set_next_sibling_num(&mut self, v: u64) {
+        self.next_sibling_num = v;
     }
 }
 
@@ -415,4 +433,10 @@ pub fn internal_node_right_page_num(page: &Vec<u8>) -> u64 {
     page_num_bytes.copy_from_slice(
         &page[consts::INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET .. consts::INTERNAL_NODE_CELL_START_OFFSET]);
     unsafe { transmute::<[u8;8], u64>(page_num_bytes) }.to_be()
+}
+
+fn leaf_node_next_sibling_num(page: &Vec<u8>) -> u64 {
+    let mut next_page_num_bytes: [u8; consts::NEXT_LEAF_NODE_NUM_SIZE] = Default::default();
+    next_page_num_bytes.copy_from_slice(&page[consts::NEXT_LEAF_NODE_OFFSET .. consts::PAGE_HEADER_SIZE]);
+    unsafe { transmute::<[u8;consts::NEXT_LEAF_NODE_NUM_SIZE], u64>(next_page_num_bytes) }.to_be()
 }
