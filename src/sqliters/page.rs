@@ -63,7 +63,7 @@ impl Page {
 
         let left_page_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = unsafe { transmute(left_page_num.to_be()) };
         let left_page_num_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + consts::INTERNAL_NODE_LEFT_PAGE_NUM_OFFSET;
-        let left_page_num_end_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + consts::INTERNAL_NODE_KEY_OFFSET;
+        let left_page_num_end_offset = left_page_num_start_offset + consts::INTERNAL_NODE_PAGE_NUM_SIZE;
         bytes[left_page_num_start_offset .. left_page_num_end_offset]
             .copy_from_slice(&left_page_bytes);
 
@@ -138,10 +138,27 @@ impl Page {
             NodeType::Leaf => {
                 leaf_shift_data(&mut self.data, cell_pos, self.num_cells);
                 leaf_copy_at_cell_pos(&mut self.data, cell_pos, data);
-                Ok(())
             },
-            NodeType::Internal => panic!("add_data not implemented for internal node")
+            NodeType::Internal => {
+                internal_node_shift_data(&mut self.data, cell_pos, self.num_cells);
+                internal_copy_at_cell_pos(&mut self.data, cell_pos, data)
+            }
         }
+
+        self.increment_cell_count();
+        Ok(())
+    }
+
+    pub fn update_data(&mut self, cell_pos: u64, data: &Vec<u8>) -> Result<(), String> {
+        match self.node_type {
+            NodeType::Leaf => {
+                leaf_copy_at_cell_pos(&mut self.data, cell_pos, data);
+            },
+            NodeType::Internal => {
+                internal_copy_at_cell_pos(&mut self.data, cell_pos, data);
+            }
+        }
+        Ok(())
     }
 
     pub fn print(&self) -> bool {
@@ -231,7 +248,7 @@ impl Page {
             let key_pos = key_start_pos + (key_end_pos - key_start_pos) / 2;
             let mid_key = self.get_key_at(key_pos);
 
-            println!("Binary search: key {}, mid_key {}, pos {}, num_keys {}", key, mid_key, key_pos, num_keys);
+            // println!("Binary search: key {}, mid_key {}, pos {}, num_keys {}", key, mid_key, key_pos, num_keys);
 
             if key == mid_key {
                 return key_pos;
@@ -244,7 +261,7 @@ impl Page {
             }
         }
 
-        println!("Result : binsearch : key {} : key_start_pos : {}", key, key_start_pos);
+        // println!("Result : binsearch : key {} : key_start_pos : {}", key, key_start_pos);
         return key_start_pos;
     }
 
@@ -283,6 +300,10 @@ impl Page {
 
     pub fn set_next_sibling_num(&mut self, v: u64) {
         self.next_sibling_num = v;
+    }
+
+    pub fn update_right_page_num(&mut self, right_page_num: u64) {
+        page::set_internal_node_right_page_num(&mut self.data, right_page_num)
     }
 }
 
@@ -330,9 +351,15 @@ fn leaf_copy_at_cell_pos(page: &mut Vec<u8>, cell_pos: u64, data: &Vec<u8>) {
     }
 }
 
-fn shift_data(page: &mut Vec<u8>, copy_start_offset: usize, copy_end_offset: usize) {
+fn internal_copy_at_cell_pos(page: &mut Vec<u8>, cell_pos: u64, data: &Vec<u8>) {
+    let cell_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (cell_pos as usize * consts::INTERNAL_NODE_CELL_SIZE);
+    page[cell_offset .. cell_offset + consts::INTERNAL_NODE_CELL_SIZE]
+        .copy_from_slice(data);
+}
+
+fn shift_data(page: &mut Vec<u8>, copy_start_offset: usize, copy_end_offset: usize, cell_size: usize) {
     let from = Vec::<u8>::from(&page[copy_start_offset .. copy_end_offset]);
-    let to = &mut page[copy_start_offset + consts::CELL_SIZE .. copy_end_offset + consts::CELL_SIZE];
+    let to = &mut page[copy_start_offset + cell_size .. copy_end_offset + cell_size];
 
     for pos in (0 .. copy_end_offset - copy_start_offset).rev() {
         to[pos] = from[pos];
@@ -342,14 +369,13 @@ fn shift_data(page: &mut Vec<u8>, copy_start_offset: usize, copy_end_offset: usi
 fn leaf_shift_data(page: &mut Vec<u8>, cell_pos: u64, num_cells: u64) {
     let copy_start_offset = consts::PAGE_HEADER_SIZE + (cell_pos as usize * consts::CELL_SIZE);
     let copy_end_offset = consts::PAGE_HEADER_SIZE + (num_cells as usize * consts::CELL_SIZE);
-    shift_data(page, copy_start_offset, copy_end_offset)
+    shift_data(page, copy_start_offset, copy_end_offset, consts::CELL_SIZE)
 }
 
 fn internal_node_shift_data(page: &mut Vec<u8>, cell_pos: u64, num_cells: u64) {
-    panic!("internal_node_shift_data not implemented")
-    // let copy_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (cell_pos as usize * consts::INTERNAL_NODE_CELL_SIZE);
-    // let copy_end_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (num_cells as usize * consts::INTERNAL_NODE_CELL_SIZE);
-    // shift_data(page, copy_start_offset, copy_end_offset)
+    let copy_start_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (cell_pos as usize * consts::INTERNAL_NODE_CELL_SIZE);
+    let copy_end_offset = consts::INTERNAL_NODE_CELL_START_OFFSET + (num_cells as usize * consts::INTERNAL_NODE_CELL_SIZE);
+    shift_data(page, copy_start_offset, copy_end_offset, consts::INTERNAL_NODE_CELL_SIZE)
 }
 
 fn set_cell_count(page: &mut Vec<u8>, count: usize) {
@@ -443,8 +469,26 @@ pub fn internal_node_right_page_num(page: &Vec<u8>) -> u64 {
     unsafe { transmute::<[u8;8], u64>(page_num_bytes) }.to_be()
 }
 
+pub fn set_internal_node_right_page_num(page: &mut Vec<u8>, right_page_num: u64) {
+    let mut page_num_bytes: [u8; consts::INTERNAL_NODE_PAGE_NUM_SIZE] = Default::default();
+    page_num_bytes.copy_from_slice(&unsafe { transmute::<u64, [u8;consts::INTERNAL_NODE_PAGE_NUM_SIZE]>(right_page_num.to_be()) } );
+    page[consts::INTERNAL_NODE_RIGHT_PAGE_NUM_OFFSET .. consts::INTERNAL_NODE_CELL_START_OFFSET]
+        .copy_from_slice(&page_num_bytes);
+}
+
+
 fn leaf_node_next_sibling_num(page: &Vec<u8>) -> u64 {
     let mut next_page_num_bytes: [u8; consts::NEXT_LEAF_NODE_NUM_SIZE] = Default::default();
     next_page_num_bytes.copy_from_slice(&page[consts::NEXT_LEAF_NODE_OFFSET .. consts::PAGE_HEADER_SIZE]);
     unsafe { transmute::<[u8;consts::NEXT_LEAF_NODE_NUM_SIZE], u64>(next_page_num_bytes) }.to_be()
 }
+
+pub fn internal_node_cell(max_key : i32, next_page_num : u64) -> Vec<u8> {
+    let mut cell : [u8; consts::INTERNAL_NODE_CELL_SIZE] = Default::default();
+    cell[consts::INTERNAL_NODE_LEFT_PAGE_NUM_OFFSET .. consts::INTERNAL_NODE_KEY_OFFSET]
+        .copy_from_slice(&unsafe { transmute::<u64, [u8;consts::INTERNAL_NODE_PAGE_NUM_SIZE]>(next_page_num.to_be()) });
+    cell[consts::INTERNAL_NODE_KEY_OFFSET .. consts::INTERNAL_NODE_KEY_OFFSET + consts::INTERNAL_NODE_KEY_SIZE]
+        .copy_from_slice(&unsafe {transmute::<i32, [u8;consts::INTERNAL_NODE_KEY_SIZE]>(max_key.to_be())});
+    cell.to_vec()
+}
+

@@ -6,7 +6,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/learndb-4103a5a98e29cfdf.exe",
-            "args": ["test_durability"],
+            "args": ["test_random_inserts_sorted_select"],
             "stopAtEntry": true,
             "cwd": "${workspaceRoot}",
             "environment": [],

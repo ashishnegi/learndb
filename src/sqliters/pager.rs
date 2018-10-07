@@ -126,6 +126,7 @@ impl Pager {
             return Err(format!("Already added max number of pages: {} : Adding {}", self.max_pages, page_num));
         }
 
+        let max_key = self.pages[page_num].max_key();
         let new_sibling_page = self.pages[page_num].split();
         let next_page_num = self.get_unused_page_num();
         self.pages[page_num].set_next_sibling_num(next_page_num);
@@ -138,6 +139,18 @@ impl Pager {
             self.pages[left_leaf_page_num as usize].set_non_root();
             // keep root at page_num
             self.pages[page_num] = page::Page::new_root(self.page_size, left_leaf_page_num, next_page_num, &self.pages[left_leaf_page_num as usize]);
+        } else  {
+            // we know 0 is the parent of all leafs
+            // assume root node has space.
+            let cell_pos = self.pages[0].find_key_pos(max_key);
+            let num_cells = self.pages[0].num_cells();
+            let page_num_max_key = self.pages[page_num].max_key();
+            self.pages[0].update_data(cell_pos, &page::internal_node_cell(max_key, next_page_num))?;
+            self.pages[0].add_data(cell_pos, &page::internal_node_cell(page_num_max_key, page_num as u64))?;
+            if cell_pos == num_cells {
+                // new right most leaf added ; update it.
+                self.pages[0].update_right_page_num(next_page_num);
+            }
         }
 
         Ok(())

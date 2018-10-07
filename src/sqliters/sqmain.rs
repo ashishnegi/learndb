@@ -152,6 +152,8 @@ mod tests {
             process_command(&mut context, &mut table, command).expect(format!("Failed at command '{}', table {:?}", command, table).as_str());
         }
 
+        table.print();
+
         assert!(process_command(&mut context, &mut table, "select").is_ok(), "select should always work");
 
         // make sure that select saw all the rows.
@@ -209,6 +211,7 @@ mod tests {
 
             table.delete_db().expect("Unable to delete test db");
         }
+        // add duplicate keys and see that it overrides the old one.
     }
 
     fn test_setup(db_filename: &str) {

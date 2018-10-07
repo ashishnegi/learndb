@@ -124,7 +124,6 @@ impl<'a> Cursor<'a> {
         }
 
         page.add_data(self.cell_num, &data)?;
-        page.increment_cell_count();
 
         Ok(())
     }
